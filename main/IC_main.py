@@ -15,7 +15,7 @@ from data.loader_construct import generate_dataloader
 from utility.utilities import load_model
 from ssTraining.ps_seq_train import *
 from torch.utils.tensorboard import SummaryWriter
-torch.cuda.set_device(1)
+torch.cuda.set_device(0)
 
 ## training procedure
 class paramerters:
@@ -52,7 +52,7 @@ class paramerters:
         self.k = 2 # top k accuracy
         # for classificatio
         self.Trainps = False
-        self.pre_train = False
+        self.pre_train = True
         self.old_modelName = '/home/ws2/Documents/jingyuan/Self-Training/seq2seq_model/selected_FSfewPCA0.0000_P100_layer3_hid1024_epoch30'#'./seq2seq_model/' + 'test_seq2seq0_P5_epoch100' #'selected_FSfewPCA0.0000_P100_layer3_hid1024_epoch30'
         self.dataloader = MySemiDataset
         self.semi_label = -1*np.ones(len(np.load('/home/ws2/Documents/jingyuan/Self-Training/labels/base_semiLabel.npy')))

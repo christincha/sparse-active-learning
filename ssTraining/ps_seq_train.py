@@ -108,7 +108,8 @@ class ic_train:
                     new_cla_loss = self.cr_cla(cla_pre[pos:pos+1, :], label[pos:pos+1]-1)
                     total_loss = labeled_cla_loss + new_cla_loss + seq_loss
                     labeled_class.append(label[pos])
-                    new_cla_loss = new_cla_loss.item()
+                    new_cla_loss = new_cla_loss.detach().item()
+                    seq_loss.detach()
 
                 else:
                     total_loss = labeled_cla_loss + seq_loss
@@ -118,20 +119,18 @@ class ic_train:
                 self.optimizer.step()
             else:
                 labeled_bs = input_tensor.size()[0]
-                unlabeled_loss = 0
-                cla_loss = labeled_cla_loss/labeled_bs*self.labeled_bs
-                total_loss = cla_loss + seq_loss
 
             labeled_n += labeled_bs
             loop_losscla.append(labeled_cla_loss.item())
             loop_losskl.append(seq_loss.item())
             acc1 = semi.eq(cla_pre.max(1)[1]).sum().item()
+
             accuracy1.append(acc1)
             if print_freq > 0 and (it % print_freq) == 0:
                 if is_train:
                     print(
                     f"[{mode}]loss[{it:<3}]\t labeled loss: {labeled_cla_loss.item():.3f}\t unlabeled loss: {new_cla_loss:.3f}\t"
-                    f" loss kl: {seq_loss.item():.3f}\t Acc1: {acc1 / labeled_bs:.3%}\t"
+                    f" loss seq: {seq_loss.item():.3f}\t Acc1: {acc1 / labeled_bs:.3%}\t"
                     )
                 else:
                     print(
@@ -141,10 +140,10 @@ class ic_train:
             if self.writer:
                 self.writer.add_scalar('loss/'+ mode + '_step_loss_seq', seq_loss.item(), self.global_step)
                 self.writer.add_scalar('acc/'+mode + '_step_accuracy_p1', acc1 / labeled_bs, self.global_step)
-                self.writer.add_scalar('loss/'+ mode + '_step_loss_cla_labeled', labeled_cla_loss / labeled_bs, self.global_step)
+                self.writer.add_scalar('loss/'+ mode + '_step_loss_cla_labeled', labeled_cla_loss.item() / labeled_bs, self.global_step)
 
-        print(f">>>[{mode}]loss\t loss cla: {sum(loop_losscla):.3f}\t"
-              f"loss kl: {sum(loop_losskl):.3f}\t "
+        print(f">>>[{mode}]loss\t loss cla: {sum(loop_losscla)/labeled_n:.3f}\t"
+              f"loss seq: {sum(loop_losskl)/len(data_loader):.3f}\t "
               f"Acc1: {sum(accuracy1) / labeled_n:.3%}")
         if self.writer:
             self.writer.add_scalar('loss/'+mode + '_epoch_loss_cla', sum(loop_losscla)/labeled_n, self.epoch)
@@ -152,7 +151,7 @@ class ic_train:
             self.writer.add_scalar('acc/'+ mode + '_epoch_accuracy1', sum(accuracy1) / labeled_n, self.epoch)
             if is_train:
                 if labeled_class:
-                    self.writer.add_histogram('hist/new_labeled', labeled_class, self.epoch)
+                    self.writer.add_histogram('hist/new_labeled', np.asarray(labeled_class), self.epoch)
 
     def unlabeled_weight(self):
         alpha = 0.0
@@ -186,13 +185,13 @@ class ic_train:
                 self.save(ep)
 
     def save(self, epoch, loss=0, **kwargs):
-        for item in os.listdir('./seq2seq_model/'):
+        for item in os.listdir('../seq2seq_model/'):
             if item.startswith('%s_P%d' % (
                     self.network, self.percentage * 100)):
-                open('./seq2seq_model/' + item,
+                open('../seq2seq_model/' + item,
                      'w').close()  # overwrite and make the file blank instead - ref: https://stackoverflow.com/a/4914288/3553367
-                os.remove('./seq2seq_model/' + item)
+                os.remove('../seq2seq_model/' + item)
 
-        path_model = './seq2seq_model/%s_P%d_epoch%d' % (
+        path_model = '../seq2seq_model/%s_P%d_epoch%d' % (
             self.network, self.percentage * 100, epoch)
         save_checkpoint(self.model, epoch, self.optimizer, loss, path_model)

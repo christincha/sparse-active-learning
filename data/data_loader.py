@@ -1,12 +1,12 @@
 ## prepare data
 # load file
 from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
-from sampling import *
+from label.sampling import *
 from torch.nn.utils.rnn import pad_packed_sequence, pad_sequence, pack_padded_sequence
-from label_statistic import *
+from label.label_statistic import *
 import random
 import torch
-from sampling import *
+from label.sampling import *
 import h5py
 import numpy as np
 from torch.fft import rfft

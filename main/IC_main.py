@@ -9,11 +9,10 @@ from Model import SemiSeq
 # load file
 from label_statistic import average_label_prob
 from torch.utils.data import Dataset, DataLoader,SubsetRandomSampler
-from data_loader import *
+from data.data_loader import *
 import torch
-from label_generation  import iter_label
-from loader_construct import generate_dataloader
-from utilities import load_model
+from data.loader_construct import generate_dataloader
+from utility.utilities import load_model
 from ssTraining.ps_seq_train import *
 from torch.utils.tensorboard import SummaryWriter
 torch.cuda.set_device(0)

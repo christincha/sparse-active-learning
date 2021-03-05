@@ -1,4 +1,4 @@
-from data_loader import *
+from data.data_loader import *
 from relic.relic_Dataset import TwoStreamBatchSampler
 from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler, BatchSampler
 def generate_dataloader(loader_type,train_path, test_path, semi_label, batch_size, label_batch):

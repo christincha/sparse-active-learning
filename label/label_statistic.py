@@ -1,7 +1,7 @@
 import numpy as np
 import os
 from collections import Counter
-from data_loader import *
+from data.data_loader import *
 from sklearn.metrics import confusion_matrix
 
 import matplotlib.pyplot as plt

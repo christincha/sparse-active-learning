@@ -12,11 +12,11 @@ import random
 import torch
 import torch.nn as nn
 from ssTraining.SeqModel import *
-from utilities import *
+from utility.utilities import *
 from torch import optim
 import torch.nn.functional as F
-from  data_loader import *
-from data_loader import NO_LABEL
+from  data.data_loader import *
+from data.data_loader import NO_LABEL
 from  ssTraining.clustering_classification import *
 import time
 from  ssTraining.extract_hidden import *
@@ -48,6 +48,7 @@ class ic_train:
         self.T1 = T1
         self.T2 = T2
         self.af = af
+        self.traget_num = np.round(len(train_loader))
 
     def _iteration_step(self, input_tensor, seq_len, label, model, optimizer, criterion_seq, criterion_cla, alpha):
             optimizer.zero_grad()
@@ -65,16 +66,17 @@ class ic_train:
             seq_loss = torch.sum(criterion_seq(de_out, input_tensor), 2)
             seq_loss = torch.mean(torch.sum(seq_loss, 1) / mask)
 
-            return cla_loss, seq_loss, en_hi, de_out, cla_pre
+            return cla_loss, seq_loss, en_hi, de_out.detach, cla_pre
 
-    def correct_label(self, unlab_id, p1,th=0.9):
-        prob1 = torch.softmax(p1, dim=1)
+    def select_sample_id(self, unlab_id, p1):
+        prob1 = torch.softmax(p1, dim=1) #(N, 60)
         sort1, cla_1 = torch.sort(prob1, dim=-1)
 
-        vr1 = sort1[ :, -1]
-        meetrq = vr1 > th
+        vr1 = torch.argsort(sort1[ :, -1])
 
-        return torch.logical_and(unlab_id, meetrq)
+        for i in range(len(vr1)):
+            if unlab_id[vr1[i]]:
+                return vr1[i]
 
     def _iteration(self, data_loader, print_freq, is_train=True):
         loop_losscla = []
@@ -85,7 +87,7 @@ class ic_train:
         correct_label_epoch = 0
         mode = "train" if is_train else "test"
 
-        for  it, (data, seq_len, label, semi_label, _) in enumerate(data_loader):
+        for  it, (data, seq_len, label, semi_label, id) in enumerate(data_loader):
             input_tensor = data.to(device)
             semi_label = torch.tensor(semi_label, dtype=torch.long).to(device)
             label = torch.tensor(label).to(self.device)
@@ -96,25 +98,10 @@ class ic_train:
 
             self.global_step += 1
             if is_train:
-                labeled_bs = self.labeled_bs
-                with torch.no_grad():
-                    pseudo_labeled = cla_pre.max(1)[1]
-                    correct_label = sum(pseudo_labeled==label)
-                    correct_label_epoch += correct_label
-                if self.TrainPS:
-                    indicator = self.correct_label(indicator, cla_pre)
-                    unlabeled_loss = self.unlabeled_weight()*torch.sum(indicator.float() *
-                                               (self.cr_cla(cla_pre, pseudo_labeled)) / ((input_tensor.size(
-                        0) - self.labeled_bs) / self.labeled_bs + 1e-10))
-                    cla_loss = (unlabeled_loss + labeled_cla_loss)
-                    unlabeled_loss = unlabeled_loss.item()
-                else:
-                    cla_loss = labeled_cla_loss
-                    unlabeled_loss = 0
-                total_loss = cla_loss + seq_loss
-                total_loss.backward()
-                clip_grad_norm_(self.model.parameters(), 25, norm_type=2)
-                self.optimizer.step()
+                pos = self.select_sample_id(cla_pre)
+                data_loader.dataset.semi_label[id[pos]] = label[id[pos]]
+                new_cla_loss = self.cr_cla(cla_pre[id, :], label)
+                total_loss = labeled_cla_loss + new_cla_loss
             else:
                 labeled_bs = input_tensor.size()[0]
                 unlabeled_loss = 0

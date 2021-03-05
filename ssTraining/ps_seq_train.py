@@ -48,8 +48,9 @@ class ic_train:
         self.T1 = T1
         self.T2 = T2
         self.af = af
-        self.traget_num = np.round(len(train_loader))
+        self.traget_num = np.round(len(train_loader.dataset)*percentage)
         self.semi_label = torch.tensor(train_loader.dataset.semi_label,dtype=torch.long).to(device)
+        self.labeled_num = 0
 
     def _iteration_step(self, input_tensor, seq_len, label, model, optimizer, criterion_seq, criterion_cla, alpha):
             optimizer.zero_grad()
@@ -101,7 +102,8 @@ class ic_train:
 
             self.global_step += 1
             if is_train:
-                if self.global_step <= self.traget_num:
+                if self.labeled_num <= self.traget_num:
+                    self.labeled_num += 1
                     labeled_bs +=1
                     pos = self.select_sample_id(indicator, cla_pre)
                     self.semi_label[id[pos]] = label[pos]
@@ -130,7 +132,7 @@ class ic_train:
                 if is_train:
                     print(
                     f"[{mode}]loss[{it:<3}]\t labeled loss: {labeled_cla_loss.item():.3f}\t unlabeled loss: {new_cla_loss:.3f}\t"
-                    f" loss seq: {seq_loss.item():.3f}\t Acc1: {acc1 / labeled_bs:.3%}\t"
+                    f" loss seq: {seq_loss.item():.3f}\t Acc1: {acc1 / labeled_bs:.3%}\t labeled num {self.labeled_num:3d}"
                     )
                 else:
                     print(
@@ -141,6 +143,8 @@ class ic_train:
                 self.writer.add_scalar('loss/'+ mode + '_step_loss_seq', seq_loss.item(), self.global_step)
                 self.writer.add_scalar('acc/'+mode + '_step_accuracy_p1', acc1 / labeled_bs, self.global_step)
                 self.writer.add_scalar('loss/'+ mode + '_step_loss_cla_labeled', labeled_cla_loss.item() / labeled_bs, self.global_step)
+                self.writer.add_scalar('label/' + mode + 'add label', self.labeled_num,
+                                       self.global_step)
 
         print(f">>>[{mode}]loss\t loss cla: {sum(loop_losscla)/labeled_n:.3f}\t"
               f"loss seq: {sum(loop_losskl)/len(data_loader):.3f}\t "
@@ -149,9 +153,11 @@ class ic_train:
             self.writer.add_scalar('loss/'+mode + '_epoch_loss_cla', sum(loop_losscla)/labeled_n, self.epoch)
             self.writer.add_scalar('loss/'+mode + '_epoch_loss_l1', sum(loop_losskl)/len(data_loader), self.epoch)
             self.writer.add_scalar('acc/'+ mode + '_epoch_accuracy1', sum(accuracy1) / labeled_n, self.epoch)
+            self.writer.add_scalar('label/' + mode + 'epoch label', self.labeled_num,
+                                   self.epoch)
             if is_train:
                 if labeled_class:
-                    self.writer.add_histogram('hist/new_labeled', np.asarray(labeled_class), self.epoch)
+                    self.writer.add_histogram('hist/new_labeled', np.asarray(labeled_class), self.epoch, bins=1)
 
     def unlabeled_weight(self):
         alpha = 0.0

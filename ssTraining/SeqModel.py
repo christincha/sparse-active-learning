@@ -108,5 +108,9 @@ class SemiSeq2Seq(nn.Module):
         # return encoder_hidden, deout, pred
         return inter, deout, pred
 
+    def en_cla_forward(self, input_tensor, seq_len):
+        encoder_hidden = self.seq.encoder(input_tensor, seq_len)
+        pred, inter = self.classifier(encoder_hidden[0,:,:])
+        return  pred
 
 

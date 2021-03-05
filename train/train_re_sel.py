@@ -68,15 +68,17 @@ class ic_train:
 
             return cla_loss, seq_loss, en_hi, de_out.detach(), cla_pre
 
-    def select_sample_id(self, unlab_id, p1):
-        prob1 = torch.softmax(p1, dim=1) #(N, 60)
-        sort1, cla_1 = torch.sort(prob1, dim=-1)
+    def select_sample_id(self, unlab_id, cla_pre, seq_len, output):
+        with torch.no_grad():
+            cla_pre_trans = self.model.en_cla_forward(output,seq_len)
+            pre_o = torch.softmax(cla_pre, dim=-1)
+            pre_trans = torch.log_softmax(cla_pre_trans, dim=-1)
+            dif = torch.nn.functional.kl_div(pre_trans, pre_o, reduction=False)
+            vr1 = torch.argsort(dif)
+            for i in range(len(vr1)):
+                if unlab_id[vr1[i]]:
+                    return vr1[i]
 
-        vr1 = torch.argsort(sort1[ :, -1])
-
-        for i in range(len(vr1)):
-            if unlab_id[vr1[i]]:
-                return vr1[i]
 
     def _iteration(self, data_loader, print_freq, is_train=True):
         loop_losscla = []

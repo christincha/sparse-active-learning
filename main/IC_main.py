@@ -5,9 +5,9 @@
 from __future__ import unicode_literals, print_function, division
 from ssTraining.seq_train import *
 from ssTraining.SeqModel import SemiSeq2Seq
-from Model import SemiSeq
+from model.Model import SemiSeq
 # load file
-from label_statistic import average_label_prob
+from label.label_statistic import average_label_prob
 from torch.utils.data import Dataset, DataLoader,SubsetRandomSampler
 from data.data_loader import *
 import torch

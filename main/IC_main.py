@@ -55,8 +55,8 @@ class paramerters:
         self.pre_train = False
         self.old_modelName = '/home/ws2/Documents/jingyuan/Self-Training/seq2seq_model/selected_FSfewPCA0.0000_P100_layer3_hid1024_epoch30'#'./seq2seq_model/' + 'test_seq2seq0_P5_epoch100' #'selected_FSfewPCA0.0000_P100_layer3_hid1024_epoch30'
         self.dataloader = MySemiDataset
-        self.semi_label = np.load('/home/ws2/Documents/jingyuan/Self-Training/labels/base_semiLabel.npy')-1
-        self.label_batch = 5
+        self.semi_label = -1*np.ones(len(np.load('/home/ws2/Documents/jingyuan/Self-Training/labels/base_semiLabel.npy')))
+        self.label_batch = 0
         self.print_every = 100
         self.save_freq=10
         self.T1 = 0

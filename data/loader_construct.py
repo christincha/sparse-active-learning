@@ -8,13 +8,16 @@ def generate_dataloader(loader_type,train_path, test_path, semi_label, batch_siz
     labeled_idxs = np.setdiff1d(range(len(dataset_train)), unlabeled_idxs)
     dataset_train.semi_label = semi_label
     assert len(dataset_train) == len(labeled_idxs) + len(unlabeled_idxs)
-    if label_batch < batch_size:
+    if label_batch < batch_size and label_batch!=0:
         assert len(unlabeled_idxs) > 0
         batch_sampler = TwoStreamBatchSampler(
             unlabeled_idxs, labeled_idxs, batch_size, label_batch)
+    elif label_batch == 0:
+        sampler = SubsetRandomSampler(unlabeled_idxs)
+        batch_sampler = BatchSampler(sampler, batch_size, drop_last=False)
     else:
-        sampler = SubsetRandomSampler(labeled_idxs)
-        batch_sampler = BatchSampler(sampler, batch_size, drop_last=True)
+        sampler = SubsetRandomSampler(label_batch)
+        batch_sampler = BatchSampler(sampler, batch_size, drop_last=False)
     train_loader = torch.utils.data.DataLoader(dataset_train,
                                                batch_sampler=batch_sampler,
                                                pin_memory=True, collate_fn=pad_collate_semi)

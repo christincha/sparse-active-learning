@@ -49,7 +49,7 @@ class ic_train:
         self.T2 = T2
         self.af = af
         self.traget_num = np.round(len(train_loader))
-        self.semi_label = train_loader.dataset.semi_label
+        self.semi_label = torch.tensor(train_loader.dataset.semi_label,dtype=torch.long).to(device)
 
     def _iteration_step(self, input_tensor, seq_len, label, model, optimizer, criterion_seq, criterion_cla, alpha):
             optimizer.zero_grad()
@@ -86,12 +86,15 @@ class ic_train:
         labeled_class = []
         mode = "train" if is_train else "test"
 
-        for  it, (data, seq_len, label, _, id) in enumerate(data_loader):
+        for  it, (data, seq_len, label, semi, id) in enumerate(data_loader):
             input_tensor = data.to(device)
-            semi= torch.tensor(self.semi_label[id], dtype=torch.long).to(device)
+            if is_train:
+                semi= self.semi_label[id]
+            else:
+                semi = torch.tensor(semi, dtype=torch.long).to(self.device)
             label = torch.tensor(label).to(self.device)
-            indicator = self.semi_label.eq(NO_LABEL)
-            labeled_bs = sum(indicator)
+            indicator = semi.eq(NO_LABEL)
+            labeled_bs = len(semi)-sum(indicator)
             labeled_cla_loss, seq_loss, en_hi, de_out, cla_pre = self._iteration_step(input_tensor, seq_len, semi, self.model, self.optimizer,
                                                      self.cr_seq,
                                                      self.cr_cla, alpha=0.5)
@@ -101,16 +104,18 @@ class ic_train:
                 if self.global_step <= self.traget_num:
                     labeled_bs +=1
                     pos = self.select_sample_id(indicator, cla_pre)
-                    self.semi_label[id[pos]] = label[id[pos]]
-                    new_cla_loss = self.cr_cla(cla_pre[id, :], label[pos])
+                    self.semi_label[id[pos]] = label[pos]
+                    new_cla_loss = self.cr_cla(cla_pre[pos:pos+1, :], label[pos:pos+1]-1)
                     total_loss = labeled_cla_loss + new_cla_loss + seq_loss
-                    labeled_class.append(label[id[pos]])
+                    labeled_class.append(label[pos])
+                    new_cla_loss = new_cla_loss.item()
+
                 else:
                     total_loss = labeled_cla_loss + seq_loss
+                    new_cla_loss = 0
                 total_loss.backward()
                 clip_grad_norm_(self.model.parameters(), 25, norm_type=2)
                 self.optimizer.step()
-                new_cla_loss = new_cla_loss.item()
             else:
                 labeled_bs = input_tensor.size()[0]
                 unlabeled_loss = 0

@@ -15,7 +15,7 @@ from data.loader_construct import generate_dataloader
 from utility.utilities import load_model
 from ssTraining.ps_seq_train import *
 from torch.utils.tensorboard import SummaryWriter
-torch.cuda.set_device(0)
+torch.cuda.set_device(1)
 
 ## training procedure
 class paramerters:
@@ -51,9 +51,9 @@ class paramerters:
         self.threshold = 0.8
         self.k = 2 # top k accuracy
         # for classificatio
-        self.Trainps = True
+        self.Trainps = False
         self.pre_train = False
-        self.old_modelName = './seq2seq_model/' + 'test_seq2seq0_P5_epoch100' #'selected_FSfewPCA0.0000_P100_layer3_hid1024_epoch30'
+        self.old_modelName = '/home/ws2/Documents/jingyuan/Self-Training/seq2seq_model/selected_FSfewPCA0.0000_P100_layer3_hid1024_epoch30'#'./seq2seq_model/' + 'test_seq2seq0_P5_epoch100' #'selected_FSfewPCA0.0000_P100_layer3_hid1024_epoch30'
         self.dataloader = MySemiDataset
         self.semi_label = np.load('/home/ws2/Documents/jingyuan/Self-Training/labels/base_semiLabel.npy')-1
         self.label_batch = 5
@@ -144,7 +144,7 @@ if __name__ == '__main__':
     #                          cla_dim, en_num_layers, de_num_layers, cla_num_layers, fix_state, fix_weight,
     #                          teacher_force)
 
-        with SummaryWriter(comment='./output/Rotation_SSLP%d_en%d_hid%d_orL1.txt' % (
+        with SummaryWriter(comment='../output/Rotation_SSLP%d_en%d_hid%d_orL1.txt' % (
             percentage * 100, para.en_num_layers, para.hidden_size)) as writer:
             para.get_model()
             para.model_initialize()
@@ -156,7 +156,7 @@ if __name__ == '__main__':
             para.scheduler()
 
 
-            file_output = open('./output/meancla_SSLP%d_en%d_hid%d_orL1.txt' % (
+            file_output = open('../output/meancla_SSLP%d_en%d_hid%d_orL1.txt' % (
                 para.percentage * 100, para.en_num_layers, para.hidden_size), 'w')
             print(' percentage %.2f' % (para.percentage))
             # training(epoch, train_loader, eval_loader,

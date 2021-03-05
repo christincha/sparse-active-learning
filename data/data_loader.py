@@ -84,11 +84,11 @@ def pad_collate_semi(batch):
     data = [x[0] for x in batch]
     label = [x[1] for x in batch]
     semi_label = [x[2] for x in batch]
-    semi_old  = [x[3] for x in batch]
+    indice  = [x[3] for x in batch]
     semi_label = np.asarray(semi_label)
-    semi_old = np.asarray(semi_old)
+    indice = np.asarray(indice)
     xx_pad = pad_sequence(data, batch_first=True, padding_value=0)
-    return xx_pad, lens, label, semi_label, semi_old
+    return xx_pad, lens, label, semi_label, indice
 
 
 class MySemiDataset(Dataset):
@@ -122,7 +122,7 @@ class MySemiDataset(Dataset):
                     cur_ind = np.r_[cur_ind[:length]]
                     train_index[cur_ind] = i
         self.semi_label = train_index
-        self.semi_old = np.copy(self.semi_label)
+
 
     def __getitem__(self, index):
         sequence = self.data[index]
@@ -137,8 +137,8 @@ class MySemiDataset(Dataset):
                 sequence = sequence[:40, :]
         label = self.label[index]
         semi_label = self.semi_label[index]
-        semi_old = self.semi_label[index]
-        return sequence, label, semi_label, semi_old
+
+        return sequence, label, semi_label, index
 
     def __len__(self):
         return len(self.label)

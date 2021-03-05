@@ -11,10 +11,10 @@ import random
 import torch
 import torch.nn as nn
 from ssTraining.SeqModel import *
-from utilities import *
+from utility.utilities import *
 from torch import optim
 import torch.nn.functional as F
-from  data_loader import *
+from  data.data_loader import *
 
 from  ssTraining.clustering_classification import *
 import time

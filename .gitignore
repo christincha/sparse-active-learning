@@ -3,3 +3,4 @@ seq2seq_model/
 .DS_Store
 relic_out/
 reconstruct_out/
+test.py

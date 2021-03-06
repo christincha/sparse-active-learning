@@ -31,7 +31,7 @@ class paramerters:
         self.pro_re = 0
         self.phase  = 'RC'
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.network = 'seq2seq0'
+        self.network = 'resel'
         # global variable
         self.ProjectFolderName = 'NTUProject'
         self.root_path = '/home/ws2/Documents/jingyuan/'

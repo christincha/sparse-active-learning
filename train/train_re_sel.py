@@ -111,7 +111,7 @@ class ic_train:
                     self.semi_label[id[pos]] = label[pos]
                     new_cla_loss = self.cr_cla(cla_pre[pos:pos+1, :], label[pos:pos+1]-1)
                     total_loss = labeled_cla_loss + new_cla_loss + seq_loss
-                    labeled_class.append(label[pos])
+                    labeled_class.append(label[pos].cpu().numpy())
                     new_cla_loss = new_cla_loss.detach().item()
                     seq_loss.detach()
 
@@ -159,7 +159,7 @@ class ic_train:
                                    self.epoch)
             if is_train:
                 if labeled_class:
-                    self.writer.add_histogram('hist/new_labeled', np.asarray(labeled_class), self.epoch, bins=1)
+                    self.writer.add_histogram('hist/new_labeled', np.asarray(labeled_class), self.epoch)
 
     def unlabeled_weight(self):
         alpha = 0.0

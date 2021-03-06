@@ -73,7 +73,7 @@ class ic_train:
             cla_pre_trans = self.model.en_cla_forward(output,seq_len)
             pre_o = torch.softmax(cla_pre, dim=-1)
             pre_trans = torch.log_softmax(cla_pre_trans, dim=-1)
-            dif = torch.nn.functional.kl_div(pre_trans, pre_o, reduction=False)
+            dif = torch.sum(torch.nn.functional.kl_div(pre_trans, pre_o, reduction='none'), dim=-1)
             vr1 = torch.argsort(dif)
             for i in range(len(vr1)):
                 if unlab_id[vr1[i]]:
@@ -107,7 +107,7 @@ class ic_train:
                 if self.labeled_num <= self.traget_num:
                     self.labeled_num += 1
                     labeled_bs +=1
-                    pos = self.select_sample_id(indicator, cla_pre)
+                    pos = self.select_sample_id(indicator, cla_pre, seq_len,de_out)
                     self.semi_label[id[pos]] = label[pos]
                     new_cla_loss = self.cr_cla(cla_pre[pos:pos+1, :], label[pos:pos+1]-1)
                     total_loss = labeled_cla_loss + new_cla_loss + seq_loss

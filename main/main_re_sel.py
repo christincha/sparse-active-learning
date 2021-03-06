@@ -15,7 +15,7 @@ from data.loader_construct import generate_dataloader
 from utility.utilities import load_model
 from train.train_re_sel import *
 from torch.utils.tensorboard import SummaryWriter
-torch.cuda.set_device(0)
+torch.cuda.set_device(1)
 
 ## training procedure
 class paramerters:

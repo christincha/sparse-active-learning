@@ -104,7 +104,7 @@ class ic_train:
 
             self.global_step += 1
             if is_train:
-                if self.labeled_num <= self.traget_num:
+                if self.labeled_num <= self.traget_num and self.epoch%5==0:
                     self.labeled_num += 1
                     labeled_bs +=1
                     pos = self.select_sample_id(indicator, cla_pre, seq_len,de_out)
@@ -193,13 +193,16 @@ class ic_train:
                 self.save(ep)
 
     def save(self, epoch, loss=0, **kwargs):
-        for item in os.listdir('../seq2seq_model/'):
+        path = './reconstruc_out/model/'
+        if not os.path.exists(path):
+            os.mkdir(path)
+        for item in os.listdir(path):
             if item.startswith('%s_P%d' % (
                     self.network, self.percentage * 100)):
-                open('../seq2seq_model/' + item,
+                open(path + item,
                      'w').close()  # overwrite and make the file blank instead - ref: https://stackoverflow.com/a/4914288/3553367
-                os.remove('../seq2seq_model/' + item)
+                os.remove(path + item)
 
-        path_model = '../seq2seq_model/%s_P%d_epoch%d' % (
-            self.network, self.percentage * 100, epoch)
+        path_model = os.path.join('%s_P%d_epoch%d' % (
+            self.network, self.percentage * 100, epoch))
         save_checkpoint(self.model, epoch, self.optimizer, loss, path_model)

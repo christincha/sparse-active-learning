@@ -143,9 +143,14 @@ if __name__ == '__main__':
     # model = SemiSeq2Seq(feature_length, hidden_size, feature_length, batch_size,
     #                          cla_dim, en_num_layers, de_num_layers, cla_num_layers, fix_state, fix_weight,
     #                          teacher_force)
+        import socket
+        from datetime import datetime
+        current_time = datetime.now().strftime('%b%d_%H-%M-%S')
+        log_dir = os.path.join(
+            'reconstruc_out', current_time + '_' + socket.gethostname() + 'IC%d_en%d_hid%d_orL1.txt' % (
+            percentage * 100, para.en_num_layers, para.hidden_size))
 
-        with SummaryWriter(comment='../output/Rotation_SSLP%d_en%d_hid%d_orL1.txt' % (
-            percentage * 100, para.en_num_layers, para.hidden_size)) as writer:
+        with SummaryWriter(log_dir=log_dir) as writer:
             para.get_model()
             para.model_initialize()
             para.data_loader()
@@ -156,8 +161,6 @@ if __name__ == '__main__':
             para.scheduler()
 
 
-            file_output = open('../output/meancla_SSLP%d_en%d_hid%d_orL1.txt' % (
-                para.percentage * 100, para.en_num_layers, para.hidden_size), 'w')
             print(' percentage %.2f' % (para.percentage))
             # training(epoch, train_loader, eval_loader,
             #          model, optimizer,  criterion_cla, k, file_output, network='SSLbaseline', percentage=0.05, en_num_l=en_num_layers, hid_s=hidden_size)

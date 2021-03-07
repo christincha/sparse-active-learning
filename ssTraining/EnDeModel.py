@@ -51,30 +51,6 @@ class EncoderRNN(nn.Module):
         # output = self.out(output)
         return hidden  # 1*batch*featurelenghtu
 
-    # def forward(self, input_tensor, seq_len):
-    #     # packed_input = pack_padded_sequence(input_tensor, seq_len, batch_first=True, enforce_sorted=False)
-    #     # output, _ = self.gru(packed_input)
-    #     # (out_seq, seq_len2) = pad_packed_sequence(output, batch_first=True)
-
-    #     for it in range(max(seq_len)):
-    #       if it == 0:
-    #         enout_tmp, hidden_tmp = self.gru(input_tensor[:, it:it+1, :])
-    #         encoder_hidden = torch.zeros(enout_tmp.shape).to(device)
-    #       else:
-    #         enout_tmp, hidden_tmp = self.gru(input_tensor[:, it:it+1, :], hidden_tmp)
-    #       encoder_hidden = encoder_hidden + enout_tmp
-
-    #     # combine all hidden state
-    #     hidden = encoder_hidden.view(1, encoder_hidden.shape[0], -1)
-
-    #     # if hidden:
-    #     #   output, hidden = self.gru(input, hidden)
-    #     # else:
-    #     #   output, hidden = self.gru(input)
-
-    #     # output = self.out(output)
-    #     return hidden # 1*batch*featurelenghtu
-
 
 class DecoderRNN(nn.Module):
     def __init__(self, output_size, hidden_size, num_layers):

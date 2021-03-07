@@ -72,8 +72,14 @@ class ic_train:
         with torch.no_grad():
             cla_pre_trans = self.model.en_cla_forward(output,seq_len)
             pre_o = torch.softmax(cla_pre, dim=-1)
-            pre_trans = torch.log_softmax(cla_pre_trans, dim=-1)
-            dif = torch.sum(torch.nn.functional.kl_div(pre_trans, pre_o, reduction='none'), dim=-1)
+            indices = torch.sort(pre_o)[-1][:,-1]
+            pre_trans = torch.softmax(cla_pre_trans, dim=-1)
+            dif = torch.abs(pre_o[np.arange(pre_o.shape[0]), indices] - pre_trans[np.arange(pre_o.shape[0]), indices])
+            # dif = torch.sum(torch.nn.functional.kl_div(pre_trans, pre_o, reduction='none'), dim=-1)
+            # vr1 = torch.argsort(dif)
+            # for i in range(len(vr1)):
+            #     if unlab_id[vr1[i]]:
+            #         return vr1[i]
             vr1 = torch.argsort(dif)
             for i in range(len(vr1)):
                 if unlab_id[vr1[i]]:
@@ -159,7 +165,7 @@ class ic_train:
                                    self.epoch)
             if is_train:
                 if labeled_class:
-                    self.writer.add_histogram('hist/new_labeled', np.asarray(labeled_class), self.epoch)
+                    self.writer.add_histogram('hist/new_labeled', np.asarray(labeled_class), self.epoch, bins='sqrt')
 
     def unlabeled_weight(self):
         alpha = 0.0

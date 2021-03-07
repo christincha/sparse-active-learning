@@ -39,7 +39,7 @@ class relic_train_copy:
         self.af = af
         self.labeled_bs = labeled_bs
         self.semi_label = torch.tensor(train_loader.dataset.semi_label,dtype=torch.long).to(device)
-        self.labeled_num = 0
+        self.labeled_num = len(self.semi_label) - sum(self.semi_label==NO_LABEL)
         self.target_num = np.round(len(self.semi_label)*percentage)
 
     def correct_label(self, unlab_id, p1, p2,th=0.5):
@@ -55,16 +55,16 @@ class relic_train_copy:
         return torch.logical_and(unlab_id, meetrq)
 
     def select_sample_id(self, unlab_id,p1,p2):
-        with torch.no_grad():
-            prob1 = torch.exp(p1)
-            prob2 = torch.exp(p2)
-            sort1, cla_1 = torch.sort(prob1, dim=-1)
-            sort2, cla_2 = torch.sort(prob2, dim=-1)
-            dif = torch.abs(sort1[:,-1]- prob2[np.arange(sort2.shape[0]), cla_2[:,-1]])
-            vr1 = torch.argsort(dif)
-            for i in range(len(vr1)):
-                if unlab_id[vr1[i]] and cla_2[vr1[i],-1] != cla_1[vr1[i], -1]:
-                    return vr1[i]
+
+        prob1 = torch.exp(p1)
+        prob2 = torch.exp(p2)
+        sort1, cla_1 = torch.sort(prob1, dim=-1)
+        sort2, cla_2 = torch.sort(prob2, dim=-1)
+        dif = torch.abs(sort1[:,-1]- prob2[np.arange(sort2.shape[0]), cla_2[:,-1]])
+        vr1 = torch.argsort(dif)
+        for i in range(len(vr1)):
+            if unlab_id[vr1[i]] and cla_2[vr1[i],-1] != cla_1[vr1[i], -1]:
+                return vr1[i]
 
     def _iteration(self, data_loader, print_freq, is_train=True):
         loop_losscla = []
@@ -156,7 +156,7 @@ class relic_train_copy:
             self.writer.add_scalar('global_acc/'+mode + '_epoch_accuracy2', sum(accuracy2) / labeled_n, self.epoch)
             if is_train:
                 if labeled_class:
-                    self.writer.add_histogram('hist/new_labeled', np.asarray(labeled_class), self.epoch)
+                    self.writer.add_histogram('hist/new_labeled', np.asarray(labeled_class)+1, self.epoch, bins='sqrt')
     def unlabeled_weight(self):
         alpha = 0
         if self.epoch > self.T1:

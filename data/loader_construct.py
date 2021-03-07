@@ -1,10 +1,12 @@
 from data.data_loader import *
 from data.sampler_twostream import TwoStreamBatchSampler
 from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler, BatchSampler
-def generate_dataloader(loader_type,train_path, test_path, semi_label, batch_size, label_batch):
-    dataset_train = loader_type(train_path, 1)
+def generate_dataloader(loader_type, train_path, test_path, semi_label, batch_size, label_batch):
+    dataset_train =loader_type(train_path, 1)
     dataset_test = loader_type(test_path, 1)
-    unlabeled_idxs = np.where(semi_label == -1)[0]
+    if len(semi_label)==0:
+        semi_label = -1*np.ones(len(dataset_train))
+    unlabeled_idxs = np.where(semi_label==-1)[0]
     labeled_idxs = np.setdiff1d(range(len(dataset_train)), unlabeled_idxs)
     dataset_train.semi_label = semi_label
     assert len(dataset_train) == len(labeled_idxs) + len(unlabeled_idxs)
@@ -12,12 +14,13 @@ def generate_dataloader(loader_type,train_path, test_path, semi_label, batch_siz
         assert len(unlabeled_idxs) > 0
         batch_sampler = TwoStreamBatchSampler(
             unlabeled_idxs, labeled_idxs, batch_size, label_batch)
-    elif label_batch == 0:
+    elif label_batch ==0:
+        np.random.shuffle(unlabeled_idxs)
         sampler = SubsetRandomSampler(unlabeled_idxs)
-        batch_sampler = BatchSampler(sampler, batch_size, drop_last=False)
+        batch_sampler = BatchSampler(sampler, batch_size, drop_last=True)
     else:
-        sampler = SubsetRandomSampler(label_batch)
-        batch_sampler = BatchSampler(sampler, batch_size, drop_last=False)
+        sampler = SubsetRandomSampler(labeled_idxs)
+        batch_sampler = BatchSampler(sampler, batch_size, drop_last=True)
     train_loader = torch.utils.data.DataLoader(dataset_train,
                                                batch_sampler=batch_sampler,
                                                pin_memory=True, collate_fn=pad_collate_semi)

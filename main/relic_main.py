@@ -5,7 +5,7 @@ from train.relic_train import *
 from model.relic_model import relic
 from torch.nn import KLDivLoss, NLLLoss
 from torch import optim
-from data.relic_Dataset import MySemiDataset, pad_collate_semi, RotationDataset
+from data.relic_Dataset import MySemiDataset, generate_dataloader
 #from siamesa.augmentation import MySemiDataset, pad_collate_semi
 cr_kl = KLDivLoss(reduction='batchmean', log_target=True)
 cr_cla = NLLLoss(reduction='mean')
@@ -30,7 +30,6 @@ class paramerters():
         self.feature_length = 75
         self.hidden_size = 512
         self.batch_size = 64
-        self.label_batch = 0
         self.en_num_layers = 3
         self.de_num_layers = 1
         self.middle_size = 125
@@ -40,7 +39,8 @@ class paramerters():
         self.cla_dim = [60]
         self.k = 2
         self.trained_model=None
-        self.semi_label = None#np.load('../labels/base_semiLabel.npy')-1
+        self.label_batch = 0
+        self.semi_label = []#np.load('/home/ws2/Documents/jingyuan/Self-Training/labels/base_semiLabel.npy')-1#None#np.load('../labels/base_semiLabel.npy')-1
         self.data_set = MySemiDataset
         self.model = relic(self.feature_length, self.hidden_size, self.cla_dim).to(self.device)
         # self.model = relic(self.feature_length, self.hidden_size, self.cla_dim, device=self.device,
@@ -66,15 +66,15 @@ class paramerters():
                     nn.init.uniform_(param, a=-0.05, b=0.05)
 
     def get_optimizer(self):
-        #self.optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.model.en2.parameters()), lr=self.learning_rate)
+        self.optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.model.parameters()), lr=self.learning_rate)
 
-        self.optimizer = optim.SGD(
-        filter(lambda p: p.requires_grad, self.model.en2.parameters()),
-        momentum=0.9,
-        lr=self.learning_rate, weight_decay=0.0001)
+        # self.optimizer = optim.SGD(
+        # filter(lambda p: p.requires_grad, self.model.en2.parameters()),
+        # momentum=0.9,
+        # lr=self.learning_rate, weight_decay=0.0001)
 
     def load_model(self, model, model_name=None):
-        model_name = '/home/ws2/Documents/jingyuan/Self-Training/relic/model/testssl_seq2seq_P5_epoch50'#ssl_drop_P5_epoch60'
+        model_name = np.load('/home/ws2/Documents/jingyuan/Self-Training/relic/model/testssl_seq2seq_P5_epoch50')#ssl_drop_P5_epoch60'
         model, _ = load_model(model_name, model, self.optimizer, self.device)
         self.model = model
         self.get_optimizer()
@@ -101,38 +101,6 @@ class paramerters():
 # for classification
 
 # np.save('./labels/base_semiLabel.npy', dataset_train.semi_label)
-def generate_dataloader(train_path, test_path, semi_label, batch_size, label_batch):
-    dataset_train =MySemiDataset(train_path, 1)
-    dataset_test = MySemiDataset(test_path, 1)
-    if not semi_label:
-        semi_label = -1*np.ones(len(dataset_train))
-    unlabeled_idxs = np.where(semi_label==-1)[0]
-    labeled_idxs = np.setdiff1d(range(len(dataset_train)), unlabeled_idxs)
-    dataset_train.semi_label = semi_label
-    assert len(dataset_train) == len(labeled_idxs) + len(unlabeled_idxs)
-    if label_batch < batch_size and label_batch!=0:
-        assert len(unlabeled_idxs) > 0
-        batch_sampler = TwoStreamBatchSampler(
-            unlabeled_idxs, labeled_idxs, batch_size, label_batch)
-    elif label_batch ==0:
-        np.random.shuffle(unlabeled_idxs)
-        sampler = SubsetRandomSampler(unlabeled_idxs)
-        batch_sampler = BatchSampler(sampler, batch_size, drop_last=True)
-    else:
-        sampler = SubsetRandomSampler(labeled_idxs)
-        batch_sampler = BatchSampler(sampler, batch_size, drop_last=True)
-    train_loader = torch.utils.data.DataLoader(dataset_train,
-                                               batch_sampler=batch_sampler,
-                                               pin_memory=True, collate_fn=pad_collate_semi)
-
-    eval_loader = torch.utils.data.DataLoader(dataset_test,
-                                              batch_size=batch_size,
-                                              shuffle=False,
-                                              pin_memory=True,
-                                              drop_last=False, collate_fn=pad_collate_semi)
-    print("training data length: %d, validation data length: %d" % (len(dataset_train), len(dataset_test)))
-
-    return train_loader, eval_loader
 
 if __name__ == '__main__':
     para = paramerters()

@@ -5,6 +5,7 @@ from torch import optim
 from data.relic_Dataset import NO_LABEL
 from pathlib import Path
 import torch.nn as nn
+import random
 from copy import deepcopy
 def nan_to_num(input):
     if torch.isnan(input):
@@ -15,7 +16,7 @@ def nan_to_num(input):
 class relic_train_copy:
     def __init__(self, epoch, train_loader, eval_loader,
                  model, optimizer, cr_cla, cr_kl, k, writer,
-                 network, device, T1, T2, af, labeled_bs, past_acc=0.3, percentage=0.05, en_num_l=3, hid_s=1024, few_knn=True):
+                 network, device, T1, T2, af, labeled_bs, past_acc=0.3, percentage=0.05, en_num_l=3, hid_s=1024, few_knn=True, current_time= None):
         self.epoch = epoch
         self.train_loader = train_loader
         self.eval_load = eval_loader
@@ -40,7 +41,11 @@ class relic_train_copy:
         self.labeled_bs = labeled_bs
         self.semi_label = torch.tensor(train_loader.dataset.semi_label,dtype=torch.long).to(device)
         self.labeled_num = len(self.semi_label) - sum(self.semi_label==NO_LABEL)
-        self.target_num = np.round(len(self.semi_label)*percentage)
+        self.target_num = np.int(np.round(len(self.semi_label)*percentage))
+        self.select_ind = np.zeros(self.target_num)
+        self.current_time = current_time
+        self.all_label = []
+        self.save_label = True
 
     def correct_label(self, unlab_id, p1, p2,th=0.5):
         prob1 = torch.exp(p1)
@@ -56,15 +61,18 @@ class relic_train_copy:
 
     def select_sample_id(self, unlab_id,p1,p2):
 
-        prob1 = torch.exp(p1)
-        prob2 = torch.exp(p2)
-        sort1, cla_1 = torch.sort(prob1, dim=-1)
-        sort2, cla_2 = torch.sort(prob2, dim=-1)
-        dif = torch.abs(sort1[:,-1]- prob2[np.arange(sort2.shape[0]), cla_2[:,-1]])
-        vr1 = torch.argsort(dif)
+        # prob1 = torch.exp(p1)
+        # prob2 = torch.exp(p2)
+        # sort1, cla_1 = torch.sort(prob1, dim=-1)
+        # sort2, cla_2 = torch.sort(prob2, dim=-1)
+        #dif = torch.abs(sort1[:,-1]- prob2[np.arange(sort2.shape[0]), cla_2[:,-1]])
+        vr1 = list(range(p1.shape[0]))#torch.random.shuffle(torch.arange(len(dif)))  #torch.argsort(dif)
+        random.shuffle(vr1)
         for i in range(len(vr1)):
-            if unlab_id[vr1[i]] and cla_2[vr1[i],-1] != cla_1[vr1[i], -1]:
-                return vr1[i]
+            # if unlab_id[vr1[-i]] and cla_2[vr1[-i],-1] != cla_1[vr1[-i], -1]:
+            #     return vr1[-i]
+            if unlab_id[vr1[-i]]:
+                return  vr1[-i]
 
     def _iteration(self, data_loader, print_freq, is_train=True):
         loop_losscla = []
@@ -74,9 +82,7 @@ class relic_train_copy:
         labeled_class=[]
         labeled_n = 0
         mode = "train" if is_train else "test"
-        correct_label_epoch = 0
-        selected_label_epoch =0
-        correct_selected_epoch=0
+
         for it, (in1, in2, len1, len2, label, semi, idx) in enumerate(data_loader):
             in1 = in1.to(self.device)
             in2 = in2.to(self.device)
@@ -94,9 +100,10 @@ class relic_train_copy:
                 labeled_loss = torch.sum(self.cr_cla(p1, semi) + self.cr_cla(p2, semi))
                 labeled_bs = len(indicator) - sum(indicator)
 
-                if self.labeled_num <= self.target_num and self.epoch%2==0:
-                    self.labeled_num +=1
+                if self.labeled_num < self.target_num and self.epoch%1==0:
                     pos = self.select_sample_id(indicator, p1, p2)
+                    self.select_ind[self.labeled_num] = idx[pos]
+                    self.labeled_num +=1
                     self.semi_label[idx[pos]] = label[pos]
                     labeled_class.append(label[pos])
                     new_loss = torch.sum(self.cr_cla(p1[pos:pos+1],label[pos:pos+1]) + self.cr_cla(p2[pos:pos+1], label[pos:pos+1]))
@@ -121,6 +128,7 @@ class relic_train_copy:
                 unlabeled_loss = 0
                 loss_kl = self.cr_kl(p1, p2) / 2 + self.cr_kl(p2, p1) / 2
                 loss = loss_cla + loss_kl
+
             labeled_n += labeled_bs
 
             loop_losscla.append(loss_cla.item() / len(data_loader))
@@ -156,7 +164,18 @@ class relic_train_copy:
             self.writer.add_scalar('global_acc/'+mode + '_epoch_accuracy2', sum(accuracy2) / labeled_n, self.epoch)
             if is_train:
                 if labeled_class:
-                    self.writer.add_histogram('hist/new_labeled', np.asarray(labeled_class)+1, self.epoch, bins='sqrt')
+                    self.all_label = self.all_label + labeled_class
+                    labeled_class = np.repeat(np.asarray(labeled_class), 6)
+                    self.writer.add_histogram('hist/new_labeled', np.asarray(self.all_label), self.epoch, bins='sqrt')
+                    img = np.repeat(labeled_class[np.newaxis, :], 300, axis=0)
+                    H, W = img.shape
+                    img_HWC = np.zeros((H, W, 3))
+                    img_HWC[:, :, 0] = img / 60
+                    img_HWC[:, :, 1] = 1 - img / 60
+                    self.writer.add_image('selectiong process %d' % self.epoch, img_HWC, self.epoch, dataformats='HWC')
+                    if len(self.all_label) == self.target_num and self.save_label:
+                        np.save(os.path.join('relic_out/label', self.current_time), self.select_ind)
+                        self.save_label = False
     def unlabeled_weight(self):
         alpha = 0
         if self.epoch > self.T1:
@@ -188,6 +207,8 @@ class relic_train_copy:
     def loop(self, epochs, train_data, test_data, scheduler=None, print_freq=-1, save_freq=1):
         for ep in range(epochs):
             self.epoch = ep
+            if ep == 0:
+                self.save(ep)
             print("------ Training epochs: {} ------".format(ep))
             # if (ep)%50==0:
             #     self.update_parameter()
@@ -198,7 +219,7 @@ class relic_train_copy:
                 scheduler.step()
             print("------ Testing epochs: {} ------".format(ep))
             self.test(test_data, print_freq)
-            if ep % save_freq == 0:
+            if (ep+1) % save_freq == 0:
                 self.save(ep)
 
     def re_initialize(self):
@@ -221,7 +242,7 @@ class relic_train_copy:
                      'w').close()  # overwrite and make the file blank instead - ref: https://stackoverflow.com/a/4914288/3553367
                 os.remove(path + item)
 
-        path_model = os.path.join('%s_P%d_epoch%d' % (
+        path_model = os.path.join(path, '%s_P%d_epoch%d' % (
             self.network, self.percentage * 100, epoch))
         save_checkpoint(self.model, epoch, self.optimizer, loss, path_model)
 

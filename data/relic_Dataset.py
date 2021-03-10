@@ -140,11 +140,16 @@ def grouper(iterable, n):
 
 from data.sampler_twostream import TwoStreamBatchSampler
 from torch.utils.data import SubsetRandomSampler, BatchSampler
-def generate_dataloader(train_path, test_path, semi_label, batch_size, label_batch):
+def generate_dataloader(train_path, test_path, semi_label, batch_size, label_batch, pos=False):
     dataset_train =MySemiDataset(train_path, 1)
     dataset_test = MySemiDataset(test_path, 1)
     if len(semi_label)==0:
         semi_label = -1*np.ones(len(dataset_train))
+    if len(semi_label)!=0 and pos:
+        tmp = -1*np.ones(len(dataset_train))
+        for i in semi_label:
+            tmp[i] = dataset_train.label[i]
+        semi_label= tmp
     unlabeled_idxs = np.where(semi_label==-1)[0]
     labeled_idxs = np.setdiff1d(range(len(dataset_train)), unlabeled_idxs)
     dataset_train.semi_label = semi_label

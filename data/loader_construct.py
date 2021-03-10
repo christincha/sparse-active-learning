@@ -6,10 +6,9 @@ def generate_dataloader(loader_type, train_path, test_path, semi_label, batch_si
     dataset_test = loader_type(test_path, 1)
     if len(semi_label)==0:
         semi_label = -1*np.ones(len(dataset_train))
+        dataset_train.semi_label = -1 * np.ones(len(dataset_train.semi_label))
     unlabeled_idxs = np.where(semi_label==-1)[0]
     labeled_idxs = np.setdiff1d(range(len(dataset_train)), unlabeled_idxs)
-    if not semi_label:
-        dataset_train.semi_label = -1*np.ones(len(dataset_train.semi_label))
     assert len(dataset_train) == len(labeled_idxs) + len(unlabeled_idxs)
     if label_batch < batch_size and label_batch!=0:
         assert len(unlabeled_idxs) > 0

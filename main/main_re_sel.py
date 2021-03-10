@@ -51,11 +51,11 @@ class paramerters:
         self.threshold = 0.8
         self.k = 2 # top k accuracy
         # for classificatio
-        self.Trainps = False
+        self.Checkpoint= False
         self.pre_train = True
         self.old_modelName = '/home/ws2/Documents/jingyuan/Self-Training/seq2seq_model/selected_FSfewPCA0.0000_P100_layer3_hid1024_epoch30'#'./seq2seq_model/' + 'test_seq2seq0_P5_epoch100' #'selected_FSfewPCA0.0000_P100_layer3_hid1024_epoch30'
         self.dataloader = MySemiDataset
-        self.semi_label = -1*np.ones(len(np.load('/home/ws2/Documents/jingyuan/Self-Training/labels/base_semiLabel.npy')))
+        self.semi_label = []#-1*np.ones(len(np.load('/home/ws2/Documents/jingyuan/Self-Training/labels/base_semiLabel.npy')))
         self.label_batch = 0
         self.print_every = 100
         self.save_freq=10
@@ -72,7 +72,7 @@ class paramerters:
                                     self.cla_dim, self.en_num_layers, self.de_num_layers, self.cla_num_layers, self.fix_state, self.fix_weight,
                                     self.teacher_force)
 
-        if self.pre_train and not self.Trainps:
+        if self.pre_train and not self.Checkpoint:
             self.old_model = seq2seq(self.feature_length, self.hidden_size, self.feature_length, self.batch_size,
                    self.en_num_layers, self.de_num_layers, self.fix_state, self.fix_weight,self.teacher_force).to(self.device)
 
@@ -93,10 +93,11 @@ class paramerters:
             optimizer_tmp =  optim.Adam(filter(lambda p: p.requires_grad, self.old_model.parameters()), lr=self.learning_rate)
             model, _ = load_model(self.old_modelName, self.old_model, optimizer_tmp, self.device)
             self.model.seq = model
-        if self.Trainps:
+            self.get_optimizer()
+        if self.Checkpoint:
             optimizer_tmp =  optim.Adam(filter(lambda p: p.requires_grad, self.model.parameters()), lr=self.learning_rate)
-            self.model, _ = load_model(self.old_modelName, self.model, optimizer_tmp, self.device)
-        self.get_optimizer()
+            self.model, self.optimizer = load_model(self.old_modelName, self.model, optimizer_tmp, self.device)
+
 
     def data_loader(self):
         train_path = os.path.join(self.root_path, self.ProjectFolderName, self.train_data)
@@ -156,7 +157,7 @@ if __name__ == '__main__':
             para.data_loader()
             para.get_optimizer()
             para.get_criterion()
-            if para.Trainps or para.pre_train:
+            if para.Checkpoint or para.pre_train:
                 para.load_model()
             para.scheduler()
 
@@ -167,7 +168,7 @@ if __name__ == '__main__':
             trainer = ic_train(para.epoch, para.train_loader, para.test_loader, para.print_every,
                      para.model, para.optimizer, para.criterion_seq, para.criterion_cla, para.alpha, para.k, writer, para.past_acc,
                      para.root_path, para.network, para.percentage, para.en_num_layers, para.hidden_size, para.label_batch,
-                     few_knn=para.few_knn, TrainPS=para.Trainps, T1= para.T1, T2 = para.T2, af = para.af)
+                     few_knn=para.few_knn, TrainPS=para.Checkpoint, T1= para.T1, T2 = para.T2, af = para.af, current_time=current_time)
             trainer.loop(para.epoch,  para.train_loader, para.test_loader,
                          scheduler=para.model_scheduler, print_freq=para.print_every,
                          save_freq=para.save_freq)

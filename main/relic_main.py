@@ -40,7 +40,8 @@ class paramerters():
         self.k = 2
         self.trained_model=None
         self.label_batch = 0
-        self.semi_label = []#np.load('/home/ws2/Documents/jingyuan/Self-Training/labels/base_semiLabel.npy')-1#None#np.load('../labels/base_semiLabel.npy')-1
+        self.semi_label = []#np.load('/home/ws2/Documents/jingyuan/sparse-active-learning/main/relic_out/label/Mar09_11-22-14.npy', allow_pickle=True) #[]#np.load('/home/ws2/Documents/jingyuan/Self-Training/labels/base_semiLabel.npy')-1#None#np.load('../labels/base_semiLabel.npy')-1
+        self.pos = False # set to true if you want to load from selected data
         self.data_set = MySemiDataset
         self.model = relic(self.feature_length, self.hidden_size, self.cla_dim).to(self.device)
         # self.model = relic(self.feature_length, self.hidden_size, self.cla_dim, device=self.device,
@@ -87,7 +88,7 @@ class paramerters():
                                                                 test_path,
                                                                   self.semi_label,
                                                                   self.batch_size,
-                                                                  self.label_batch)
+                                                                  self.label_batch, self.pos)
 
     def get_criterion(self):
         self.cr_kl = KLDivLoss(reduction='batchmean', log_target=True)
@@ -126,7 +127,7 @@ if __name__ == '__main__':
         # percentage * 100, en_num_layers, hidden_size), 'w')
             trainer = relic_train_copy(para.epoch, para.train_loader, para.test_loader,
                      para.model, para.optimizer,  para.cr_cla, para.cr_kl, para.k, writer,
-                     para.network, para.device, para.T0, para.T1, para.af, para.label_batch ,  para.past_acc, percentage= percentage)
+                     para.network, para.device, para.T0, para.T1, para.af, para.label_batch ,  para.past_acc, percentage= percentage, current_time=current_time)
 
             trainer.loop(para.epoch, para.train_loader, para.test_loader,
                          scheduler=para.model_scheduler, print_freq=para.print_every, save_freq=para.save_freq)

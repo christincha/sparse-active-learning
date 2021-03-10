@@ -2,5 +2,7 @@ output/
 seq2seq_model/
 .DS_Store
 relic_out/
-reconstruct_out/
+reconstruc_out/
 test.py
+text.py
+run-.-tag-selected_sample_trainadd label.json

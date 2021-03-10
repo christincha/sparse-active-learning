@@ -84,7 +84,7 @@ class SubSeq_Train(ic_train):
 
             self.global_step += 1
             if is_train:
-                if self.labeled_num < self.traget_num and self.epoch%5==0:
+                if self.labeled_num < self.target_num and self.epoch%5==0:
                     labeled_bs +=1
                     pos = self.select_sample_id(indicator, cla_pre, seq_len,de_out)
                     self.labeled_num += 1
@@ -151,7 +151,7 @@ class SubSeq_Train(ic_train):
                     img_HWC[:, :, 0] = img/60
                     img_HWC[:, :, 1] = 1 - img/60
                     self.writer.add_image('selectiong process', img_HWC, self.epoch, dataformats='HWC')
-                    if self.labeled_num == self.traget_num and self.save_label:
+                    if self.labeled_num == self.target_num and self.save_label:
                         np.save(os.path.join('reconstruc_out/label', self.currrent_time), self.all_label)
                         self.save_label = False
 

@@ -61,18 +61,19 @@ class relic_train_copy:
 
     def select_sample_id(self, unlab_id,p1,p2):
 
-        # prob1 = torch.exp(p1)
-        # prob2 = torch.exp(p2)
-        # sort1, cla_1 = torch.sort(prob1, dim=-1)
-        # sort2, cla_2 = torch.sort(prob2, dim=-1)
+        prob1 = torch.exp(p1)
+        prob2 = torch.exp(p2)
+        sort1, cla_1 = torch.sort(prob1, dim=-1)
+        sort2, cla_2 = torch.sort(prob2, dim=-1)
         #dif = torch.abs(sort1[:,-1]- prob2[np.arange(sort2.shape[0]), cla_2[:,-1]])
-        vr1 = list(range(p1.shape[0]))#torch.random.shuffle(torch.arange(len(dif)))  #torch.argsort(dif)
-        random.shuffle(vr1)
+        #vr1 = list(range(p1.shape[0]))#torch.random.shuffle(torch.arange(len(dif)))  #torch.argsort(dif)
+        #random.shuffle(vr1)
+        vr1 = torch.argsort(sort1[:,-1])
         for i in range(len(vr1)):
             # if unlab_id[vr1[-i]] and cla_2[vr1[-i],-1] != cla_1[vr1[-i], -1]:
             #     return vr1[-i]
-            if unlab_id[vr1[-i]]:
-                return  vr1[-i]
+            if unlab_id[vr1[i]]:
+                return  vr1[i]
 
     def _iteration(self, data_loader, print_freq, is_train=True):
         loop_losscla = []

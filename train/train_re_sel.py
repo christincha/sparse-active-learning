@@ -47,10 +47,11 @@ class ic_train:
         self.T1 = T1
         self.T2 = T2
         self.af = af
-        self.traget_num = np.round(len(train_loader.dataset)*percentage)
+        self.target_num = int(np.round(len(train_loader.dataset)*percentage))
         self.semi_label = torch.tensor(train_loader.dataset.semi_label,dtype=torch.long).to(device)
         self.labeled_num = 0
         self.all_label = []
+        self.select_ind = np.zeros(self.target_num)
         self.save_label = True
         self.currrent_time = current_time
 
@@ -98,7 +99,6 @@ class ic_train:
         mode = "train" if is_train else "test"
 
         for  it, (data, seq_len, label, semi, id) in enumerate(data_loader):
-            pos = -1
             input_tensor = data.to(device)
             if is_train:
                 semi= self.semi_label[id]
@@ -113,9 +113,10 @@ class ic_train:
 
             self.global_step += 1
             if is_train:
-                if self.labeled_num < self.traget_num and self.epoch%5==0:
+                if self.labeled_num < self.target_num and self.epoch%5==0:
                     labeled_bs +=1
                     pos = self.select_sample_id(indicator, cla_pre, seq_len,de_out)
+                    self.select_ind[self.labeled_num] = id[pos]
                     self.labeled_num += 1
                     self.semi_label[id[pos]] = label[pos]
                     new_cla_loss = self.cr_cla(cla_pre[pos:pos+1, :], label[pos:pos+1]) # label have been minused -1 during loading
@@ -180,8 +181,8 @@ class ic_train:
                     img_HWC[:, :, 0] = img/60
                     img_HWC[:, :, 1] = 1 - img/60
                     self.writer.add_image('selectiong process', img_HWC, self.epoch, dataformats='HWC')
-                    if self.labeled_num == self.traget_num and self.save_label:
-                        np.save(os.path.join('reconstruc_out/label', self.currrent_time), self.all_label)
+                    if self.labeled_num == self.target_num and self.save_label:
+                        np.save(os.path.join('reconstruc_out/label', self.currrent_time), self.select_ind)
                         self.save_label = False
 
     def unlabeled_weight(self):

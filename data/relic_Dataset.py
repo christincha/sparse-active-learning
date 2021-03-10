@@ -148,6 +148,7 @@ def generate_dataloader(train_path, test_path, semi_label, batch_size, label_bat
     if len(semi_label)!=0 and pos:
         tmp = -1*np.ones(len(dataset_train))
         for i in semi_label:
+            i = int(i)
             tmp[i] = dataset_train.label[i]
         semi_label= tmp
     unlabeled_idxs = np.where(semi_label==-1)[0]

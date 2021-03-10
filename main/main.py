@@ -4,13 +4,13 @@
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 from __future__ import unicode_literals, print_function, division
 from ssTraining.SeqModel import seq2seq, SemiSeq2Seq
-from Model import *
+from model.Model import *
 from train import *
 #from ssTraining.seq_train import *
 # load file
 
 from torch.utils.data import Dataset, DataLoader,SubsetRandomSampler
-from data_loader import *
+from data.data_loader import *
 import torch
 torch.cuda.set_device(0)
 

@@ -40,8 +40,8 @@ class paramerters():
         self.k = 2
         self.trained_model=None
         self.label_batch = 0
-        self.semi_label = np.load('./relic_out/label/Mar09_15-26-08.npy', allow_pickle=True) #[]#np.load('/home/ws2/Documents/jingyuan/Self-Training/labels/base_semiLabel.npy')-1#None#np.load('../labels/base_semiLabel.npy')-1
-        self.pos = True # set to true if you want to load from selected data
+        self.semi_label =[]# np.load('./relic_out/label/Mar09_15-26-08.npy', allow_pickle=True) #[]#np.load('/home/ws2/Documents/jingyuan/Self-Training/labels/base_semiLabel.npy')-1#None#np.load('../labels/base_semiLabel.npy')-1
+        self.pos = False     # set to true if you want to load from selected data
         self.data_set = MySemiDataset
         self.model = relic(self.feature_length, self.hidden_size, self.cla_dim).to(self.device)
         # self.model = relic(self.feature_length, self.hidden_size, self.cla_dim, device=self.device,

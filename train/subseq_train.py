@@ -92,7 +92,7 @@ class SubSeq_Train(ic_train):
                     pos = self.select_sample_id(indicator, cla_pre, seq_len,de_out)
                     self.labeled_num += 1
                     self.semi_label[id[pos]] = label[pos]
-                    new_cla_loss = self.sub_loss(cla_pre[pos:pos+1, :], label[pos:pos+1])
+                    new_cla_loss = self.sub_loss(cla_pre[:,pos:pos+1, :], label[pos:pos+1])
                     total_loss = labeled_cla_loss + new_cla_loss + seq_loss
                     labeled_class.append(label[pos].cpu().item())
                     new_cla_loss = new_cla_loss.detach().item()

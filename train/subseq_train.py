@@ -111,7 +111,7 @@ class SubSeq_Train(ic_train):
             labeled_n += labeled_bs
             loop_losscla.append(labeled_cla_loss.item())
             loop_losskl.append(seq_loss.item())
-            acc1 = semi.eq(cla_pre.max(1)[1]).sum().item()
+            acc1 = semi.eq(cla_pre[0,:,:].max(1)[1]).sum().item()
 
             accuracy1.append(acc1)
 
@@ -158,17 +158,17 @@ class SubSeq_Train(ic_train):
                         np.save(os.path.join('reconstruc_out/label', self.currrent_time), self.all_label)
                         self.save_label = False
 
-        def save(self, epoch, loss=0, **kwargs):
-            path = './subnet_out/model/'
-            if not os.path.exists(path):
-                os.mkdir(path)
-            for item in os.listdir(path):
-                if item.startswith(os.path.join(path, '%s_P%d' % (
-                        self.network, self.percentage * 100))):
-                    open(path + item,
-                         'w').close()  # overwrite and make the file blank instead - ref: https://stackoverflow.com/a/4914288/3553367
-                    os.remove(path + item)
+    def save(self, epoch, loss=0, **kwargs):
+        path = './subnet_out/model/'
+        if not os.path.exists(path):
+            os.mkdir(path)
+        for item in os.listdir(path):
+            if item.startswith(os.path.join(path, '%s_P%d' % (
+                    self.network, self.percentage * 100))):
+                open(path + item,
+                     'w').close()  # overwrite and make the file blank instead - ref: https://stackoverflow.com/a/4914288/3553367
+                os.remove(path + item)
 
-            path_model = os.path.join(path, '%s_P%d_epoch%d' % (
-                self.network, self.percentage * 100, epoch))
-            save_checkpoint(self.model, epoch, self.optimizer, loss, path_model)
+        path_model = os.path.join(path, '%s_P%d_epoch%d' % (
+            self.network, self.percentage * 100, epoch))
+        save_checkpoint(self.model, epoch, self.optimizer, loss, path_model)

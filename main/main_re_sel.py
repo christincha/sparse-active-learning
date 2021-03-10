@@ -3,19 +3,10 @@
 # Press Shift+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 from __future__ import unicode_literals, print_function, division
-from ssTraining.seq_train import *
-from ssTraining.SeqModel import SemiSeq2Seq
-from model.Model import SemiSeq
 # load file
-from label.label_statistic import average_label_prob
-from torch.utils.data import Dataset, DataLoader,SubsetRandomSampler
-from data.data_loader import *
-import torch
-from data.loader_construct import generate_dataloader
-from utility.utilities import load_model
 from train.train_re_sel import *
 from torch.utils.tensorboard import SummaryWriter
-from main.para_class import paramerters
+from utility.para_class import paramerters
 torch.cuda.set_device(1)
 
 ## training procedure
@@ -68,7 +59,6 @@ class para_re_sel(paramerters):
         self.past_acc = 4
 
 
-import copy
 if __name__ == '__main__':
     para = paramerters()
     for percentage in [para.percentage]:

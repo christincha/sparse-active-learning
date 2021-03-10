@@ -154,3 +154,18 @@ class SubSeq_Train(ic_train):
                     if self.labeled_num == self.traget_num and self.save_label:
                         np.save(os.path.join('reconstruc_out/label', self.currrent_time), self.all_label)
                         self.save_label = False
+
+        def save(self, epoch, loss=0, **kwargs):
+            path = './subnet_out/model/'
+            if not os.path.exists(path):
+                os.mkdir(path)
+            for item in os.listdir(path):
+                if item.startswith(os.path.join(path, '%s_P%d' % (
+                        self.network, self.percentage * 100))):
+                    open(path + item,
+                         'w').close()  # overwrite and make the file blank instead - ref: https://stackoverflow.com/a/4914288/3553367
+                    os.remove(path + item)
+
+            path_model = os.path.join(path, '%s_P%d_epoch%d' % (
+                self.network, self.percentage * 100, epoch))
+            save_checkpoint(self.model, epoch, self.optimizer, loss, path_model)

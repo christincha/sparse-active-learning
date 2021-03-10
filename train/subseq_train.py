@@ -23,7 +23,10 @@ class SubSeq_Train(ic_train):
         loss_list = 0
         # computing the classification loss of each subnetwork
         for i in range(cla_pre.shape[0]):
-            loss_list += self.cr_cla(cla_pre[i,:,:], label)
+            if i == 0:
+                loss_list = self.cr_cla(cla_pre[i,:,:], label)
+            else:
+                loss_list += self.cr_cla(cla_pre[i,:,:], label)
         return loss_list
 
     def _iteration_step(self, input_tensor, seq_len, label, model, optimizer, criterion_seq, criterion_cla, alpha):

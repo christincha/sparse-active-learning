@@ -6,3 +6,4 @@ reconstruc_out/
 test.py
 text.py
 run-.-tag-selected_sample_trainadd label.json
+OPC_granA0.0000_P100_layer3_hid1024_epoch30

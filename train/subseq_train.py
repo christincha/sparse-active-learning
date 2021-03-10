@@ -1,16 +1,3 @@
-
-# load file
-from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler
-import os
-from torch.nn.utils import clip_grad_norm_
-from torch.nn.utils.rnn import pad_packed_sequence, pad_sequence, pack_padded_sequence
-from io import open
-import unicodedata
-import string
-import re
-import random
-import torch
-import torch.nn as nn
 from ssTraining.SeqModel import *
 from utility.utilities import *
 from torch import optim
@@ -20,46 +7,31 @@ from data.data_loader import NO_LABEL
 from  ssTraining.clustering_classification import *
 import time
 from  ssTraining.extract_hidden import *
-class ic_train:
+from train.train_re_sel import ic_train
+
+class SubSeq_Train(ic_train):
     def __init__(self, epoch, train_loader, eval_loader, print_every,
              model, optimizer, criterion_seq, criterion_cla, alpha, k, writer, past_acc,
              root_path, network, percentage, en_num_layers, hidden_size, labeled_bs,
              few_knn=True, TrainPS=False, T1=0, T2 = 30, af = 0.3, current_time = None):
-        self.epoch = epoch
-        self.train_loader = train_loader
-        self.eval_load = eval_loader
-        self.model = model
-        self.optimizer = optimizer
-        self.cr_seq = criterion_seq
-        self.cr_cla = criterion_cla
-        self.k = k
-        self.writer = writer
-        self.network = network
-        self.past_acc = past_acc
-        self.percentage = percentage
-        self.en_num_l = en_num_layers
-        self.hid_d = hidden_size
-        self.few_knn = few_knn
-        self.device = device
-        self.global_step = 0
-        self.labeled_bs = labeled_bs
-        self.root_path = root_path
-        self.T1 = T1
-        self.T2 = T2
-        self.af = af
-        self.traget_num = np.round(len(train_loader.dataset)*percentage)
-        self.semi_label = torch.tensor(train_loader.dataset.semi_label,dtype=torch.long).to(device)
-        self.labeled_num = 0
-        self.all_label = []
-        self.save_label = True
-        self.currrent_time = current_time
+        super().__init__(epoch, train_loader, eval_loader, print_every,
+             model, optimizer, criterion_seq, criterion_cla, alpha, k, writer, past_acc,
+             root_path, network, percentage, en_num_layers, hidden_size, labeled_bs,
+             few_knn, TrainPS, T1, T2, af, current_time)
+
+    def sub_loss(self,  cla_pre, label):
+        loss_list = 0
+        # computing the classification loss of each subnetwork
+        for i in range(cla_pre.shape[0]):
+            loss_list += self.cr_cla(cla_pre[i,:,:], label)
+        return loss_list
 
     def _iteration_step(self, input_tensor, seq_len, label, model, optimizer, criterion_seq, criterion_cla, alpha):
             optimizer.zero_grad()
 
             en_hi, de_out, cla_pre = model(input_tensor, seq_len)
 
-            cla_loss = criterion_cla(cla_pre, label)
+            cla_loss = self.sub_loss(cla_pre, label)
             mask = torch.zeros([len(seq_len), max(seq_len)]).to(device)
             for ith_batch in range(len(seq_len)):
                 mask[ith_batch, 0:seq_len[ith_batch]] = 1
@@ -72,20 +44,19 @@ class ic_train:
 
     def select_sample_id(self, unlab_id, cla_pre, seq_len, output):
         with torch.no_grad():
-            cla_pre_trans = self.model.en_cla_forward(output,seq_len)
+            #cla_pre_trans = self.model.en_cla_forward(output,seq_len)
             pre_o = torch.softmax(cla_pre, dim=-1)
-            indices = torch.sort(pre_o)[-1][:,-1]
-            pre_trans = torch.softmax(cla_pre_trans, dim=-1)
-            #dif = torch.abs(pre_o[np.arange(pre_o.shape[0]), indices] - pre_trans[np.arange(pre_o.shape[0]), indices])
-            dif = torch.sum(torch.nn.functional.kl_div(pre_trans, pre_o, reduction='none'), dim=-1)
+            indices = torch.sort(pre_o)[-1][:,:,-1] # 9, 64 /9 multihead the first use all the subnetwork for prediction, the other for subnetwork
+            cohherent = indices[1:,] == indices[0,:]
+            cohherent = torch.sum(cohherent, dim=0)
             # vr1 = torch.argsort(dif)
             # for i in range(len(vr1)):
             #     if unlab_id[vr1[i]]:
             #         return vr1[i]
-            vr1 = torch.argsort(dif)
+            vr1 = torch.argsort(cohherent)
             for i in range(len(vr1)):
-                if unlab_id[vr1[-i]]:
-                    return vr1[-i]
+                if unlab_id[vr1[i]]:
+                    return vr1[i]
 
 
     def _iteration(self, data_loader, print_freq, is_train=True):
@@ -118,7 +89,7 @@ class ic_train:
                     pos = self.select_sample_id(indicator, cla_pre, seq_len,de_out)
                     self.labeled_num += 1
                     self.semi_label[id[pos]] = label[pos]
-                    new_cla_loss = self.cr_cla(cla_pre[pos:pos+1, :], label[pos:pos+1]) # label have been minused -1 during loading
+                    new_cla_loss = self.sub_loss(cla_pre[pos:pos+1, :], label[pos:pos+1])
                     total_loss = labeled_cla_loss + new_cla_loss + seq_loss
                     labeled_class.append(label[pos].cpu().item())
                     new_cla_loss = new_cla_loss.detach().item()
@@ -183,49 +154,3 @@ class ic_train:
                     if self.labeled_num == self.traget_num and self.save_label:
                         np.save(os.path.join('reconstruc_out/label', self.currrent_time), self.all_label)
                         self.save_label = False
-
-    def unlabeled_weight(self):
-        alpha = 0.0
-        if self.epoch > self.T1:
-            alpha = (self.epoch - self.T1) / (self.T2 - self.T1) * self.af
-            if self.epoch > self.T2:
-                alpha = self.af
-        return alpha
-
-    def train(self, data_loader, print_freq=20):
-        self.model.train()
-        with torch.enable_grad():
-            self._iteration(data_loader, print_freq)
-
-    def test(self, data_loader, print_freq=10):
-        self.model.eval()
-        with torch.no_grad():
-            self._iteration(data_loader, print_freq, is_train=False)
-
-
-    def loop(self, epochs, train_data, test_data, scheduler=None, print_freq=-1, save_freq=1):
-        for ep in range(epochs):
-            self.epoch = ep
-            print("------ Training epochs: {} ------".format(ep))
-            self.train(train_data, print_freq)
-            if scheduler is not None:
-                scheduler.step()
-            print("------ Testing epochs: {} ------".format(ep))
-            self.test(test_data, print_freq)
-            if ep % save_freq == 0:
-                self.save(ep)
-
-    def save(self, epoch, loss=0, **kwargs):
-        path = './reconstruc_out/model/'
-        if not os.path.exists(path):
-            os.mkdir(path)
-        for item in os.listdir(path):
-            if item.startswith(os.path.join(path,'%s_P%d' % (
-                    self.network, self.percentage * 100))):
-                open(path + item,
-                     'w').close()  # overwrite and make the file blank instead - ref: https://stackoverflow.com/a/4914288/3553367
-                os.remove(path + item)
-
-        path_model = os.path.join(path,'%s_P%d_epoch%d' % (
-            self.network, self.percentage * 100, epoch))
-        save_checkpoint(self.model, epoch, self.optimizer, loss, path_model)

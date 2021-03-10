@@ -15,11 +15,13 @@ from data.loader_construct import generate_dataloader
 from utility.utilities import load_model
 from train.train_re_sel import *
 from torch.utils.tensorboard import SummaryWriter
+from main.para_class import paramerters
 torch.cuda.set_device(1)
 
 ## training procedure
-class paramerters:
+class para_re_sel(paramerters):
     def __init__(self):
+        super().__init__()
         self.teacher_force = False
         self.fix_weight = False
         self.fix_state = True
@@ -63,84 +65,13 @@ class paramerters:
         self.T2 = 1000
         self.af = 0.0001
 
-        self.per = [0.4]
-
         self.past_acc = 4
 
-    def get_model(self):
-        self.model = SemiSeq2Seq(self.feature_length, self.hidden_size, self.feature_length, self.batch_size,
-                                    self.cla_dim, self.en_num_layers, self.de_num_layers, self.cla_num_layers, self.fix_state, self.fix_weight,
-                                    self.teacher_force)
-
-        if self.pre_train and not self.Checkpoint:
-            self.old_model = seq2seq(self.feature_length, self.hidden_size, self.feature_length, self.batch_size,
-                   self.en_num_layers, self.de_num_layers, self.fix_state, self.fix_weight,self.teacher_force).to(self.device)
-
-    def model_initialize(self):
-        with torch.no_grad():
-            for child in list(self.model.children()):
-                print(child)
-                for param in list(child.parameters()):
-                    # if param.dim() == 2
-                    #   nn.init.xavier_uniform_(param)
-                    nn.init.uniform_(param, a=-0.05, b=0.05)
-
-    def get_optimizer(self):
-        self.optimizer = optim.Adam(filter(lambda p: p.requires_grad, self.model.parameters()), lr=self.learning_rate)
-
-    def load_model(self):
-        if self.pre_train:
-            optimizer_tmp =  optim.Adam(filter(lambda p: p.requires_grad, self.old_model.parameters()), lr=self.learning_rate)
-            model, _ = load_model(self.old_modelName, self.old_model, optimizer_tmp, self.device)
-            self.model.seq = model
-            self.get_optimizer()
-        if self.Checkpoint:
-            optimizer_tmp =  optim.Adam(filter(lambda p: p.requires_grad, self.model.parameters()), lr=self.learning_rate)
-            self.model, self.optimizer = load_model(self.old_modelName, self.model, optimizer_tmp, self.device)
-
-
-    def data_loader(self):
-        train_path = os.path.join(self.root_path, self.ProjectFolderName, self.train_data)
-        test_path = os.path.join(self.root_path, self.ProjectFolderName, self.test_data)
-
-        self.train_loader, self.test_loader = generate_dataloader(self.dataloader,train_path,
-                                                                  test_path,
-                                                                  self.semi_label,
-                                                                  self.batch_size,
-                                                                  self.label_batch)
-
-    def get_criterion(self, loss_type='L1'):
-        if loss_type == 'MSE':
-            self.criterion_seq = nn.MSELoss(reduction='none')
-
-        if loss_type == 'L1':
-            self.criterion_seq = nn.L1Loss(reduction='none')
-
-        self.criterion_cla = nn.CrossEntropyLoss(reduction='sum', ignore_index=NO_LABEL)
-
-    def scheduler(self):
-        lambda1 = lambda ith_epoch: 0.95 ** (ith_epoch // 2)
-        self.model_scheduler = optim.lr_scheduler.LambdaLR(self.optimizer, lr_lambda=lambda1)
-
-
-# dataset_ps = MyInterTrainDataset(os.path.join(root_path, ProjectFolderName, train_data), [], fourier=False)
-# dataset_ps.semi_label = np.load(semi_name)
-# dataset_ps.semi_old = np.load(semi_name)
-#
-# train_loader_full = torch.utils.data.DataLoader(dataset_ps, batch_size=batch_size,
-#                                shuffle=False, collate_fn=pad_collate_iter)
-#
-#model_tmp = SemiSeq(feature_length, hidden_size, cla_dim).to(device)
-# optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=learning_rate)
-#model_name = './seq2seq_model/' + 'trained_seq2seq0A0.8000_P5_layer3_hid1024_epoch85'#'''ssl_seq2seqA0.5000_P5_layer3_hid1024_epoch139'
-# 'FSfewCVrandomA0.0000_P50_layer3_hid1024_epoch16'  ##'FScvA0.0000_P100_layer3_hid1024_epoch4'#'FScvnewA0.0000_P100_layer3_hid1024_epoch1'#'test1_FWA0.0000_P100_layer3_hid1024_epoch255'
-# model_trained, _ = load_model(model_name, model_trained, optimizer, device)
-# optimizer = optim.Adam(filter(lambda p: p.requires_grad, model_trained.parameters()), lr=learning_rate)
 
 import copy
 if __name__ == '__main__':
     para = paramerters()
-    for percentage in para.per:
+    for percentage in [para.percentage]:
     # model = SemiSeq2Seq(feature_length, hidden_size, feature_length, batch_size,
     #                          cla_dim, en_num_layers, de_num_layers, cla_num_layers, fix_state, fix_weight,
     #                          teacher_force)

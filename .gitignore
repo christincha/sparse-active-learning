@@ -3,6 +3,7 @@ seq2seq_model/
 .DS_Store
 relic_out/
 reconstruc_out/
+subseq_out
 test.py
 text.py
 run-.-tag-selected_sample_trainadd label.json

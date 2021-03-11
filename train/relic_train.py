@@ -101,7 +101,7 @@ class relic_train_copy:
                 labeled_loss = torch.sum(self.cr_cla(p1, semi) + self.cr_cla(p2, semi))
                 labeled_bs = len(indicator) - sum(indicator)
 
-                if self.labeled_num < self.target_num and self.epoch%1==0:
+                if self.labeled_num < self.target_num and self.epoch%5==0:
                     pos = self.select_sample_id(indicator, p1, p2)
                     self.select_ind[self.labeled_num] = idx[pos]
                     self.labeled_num +=1

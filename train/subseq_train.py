@@ -159,7 +159,7 @@ class SubSeq_Train(ic_train):
                         self.save_label = False
 
     def save(self, epoch, loss=0, **kwargs):
-        path = './subnet_out/model/'
+        path = './subseq_out/model/'
         if not os.path.exists(path):
             os.mkdir(path)
         for item in os.listdir(path):

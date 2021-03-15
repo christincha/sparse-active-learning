@@ -75,18 +75,20 @@ class ic_train:
         with torch.no_grad():
             cla_pre_trans = self.model.en_cla_forward(output,seq_len)
             pre_o = torch.softmax(cla_pre, dim=-1)
-            indices = torch.sort(pre_o)[-1][:,-1]
+            ido = torch.sort(pre_o)[-1][:,-1]
             pre_trans = torch.softmax(cla_pre_trans, dim=-1)
+            p_re, idre = torch.sort(pre_trans)
+
             #dif = torch.abs(pre_o[np.arange(pre_o.shape[0]), indices] - pre_trans[np.arange(pre_o.shape[0]), indices])
-            dif = torch.sum(torch.nn.functional.kl_div(pre_trans, pre_o, reduction='none'), dim=-1)
+            #dif = torch.sum(torch.nn.functional.kl_div(pre_trans, pre_o, reduction='none'), dim=-1)
             # vr1 = torch.argsort(dif)
             # for i in range(len(vr1)):
             #     if unlab_id[vr1[i]]:
             #         return vr1[i]
-            vr1 = torch.argsort(dif)
+            vr1 = torch.argsort(p_re[:,-1])
             for i in range(len(vr1)):
-                if unlab_id[vr1[-i]]:
-                    return vr1[-i]
+                if unlab_id[vr1[i]] and (ido[vr1[i]]!=idre[vr1[i], -1]):
+                    return vr1[i]
 
 
     def _iteration(self, data_loader, print_freq, is_train=True):
@@ -215,6 +217,7 @@ class ic_train:
             self.test(test_data, print_freq)
             if ep % save_freq == 0:
                 self.save(ep)
+                self.get_class(train_data, 'train_ep%d'%ep)
 
     def save(self, epoch, loss=0, **kwargs):
         path = './reconstruc_out/model/'
@@ -230,3 +233,35 @@ class ic_train:
         path_model = os.path.join(path,'%s_P%d_epoch%d' % (
             self.network, self.percentage * 100, epoch))
         save_checkpoint(self.model, epoch, self.optimizer, loss, path_model)
+
+    def get_class(self, data_loader, mod):
+        # 1 max prob of original input,  2. prob oftreconstruced same class as original input, # max prob of reconstructed
+        with torch.no_grad():
+            pall = torch.zeros((len(data_loader.dataset),3)).to(self.device)
+            call = torch.zeros((len(data_loader.dataset),3)).to(self.device) # 1predict classre 2 constracut claa 3 real class
+            start = 0
+            for it, (data, seq_len, label, semi, id) in enumerate(data_loader):
+                end = start + len(id)
+                input_tensor = data.to(device)
+                en_hi, de_out, cla_pre = self.model(input_tensor, seq_len)
+                cla_pre_trans = self.model.en_cla_forward(de_out.detach(), seq_len)
+                po = torch.softmax(cla_pre, dim=-1)
+                ido = torch.sort(po)[-1][:, -1]
+                pt = torch.softmax(cla_pre_trans, dim=-1)
+                idt = torch.sort(pt)[-1][:, -1]
+                pall[start:end, 0] = po[np.arange(len(id)), ido]
+                pall[start:end, 1] = pt[np.arange(len(id)), ido]
+                pall[start:end, 2] = pt[np.arange(len(id)), idt]
+                call[start:end, 0] = ido
+                call[start:end, 1] = idt
+                call[start:end, 2] = torch.tensor(label).to(device)
+                start = end
+            path = './reconstruc_out/result_ana/'
+            if not os.path.exists(path):
+                os.mkdir(path)
+        np.save(os.path.join(path, mod+'prob.py'), pall.cpu().numpy())
+        np.save(os.path.join(path, mod+'class.py'), call.cpu().numpy())
+
+
+    def initial_sample(self):
+        pass

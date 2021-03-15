@@ -60,7 +60,7 @@ class para_re_sel(paramerters):
 
 
 if __name__ == '__main__':
-    para = paramerters()
+    para = para_re_sel()
     for percentage in [para.percentage]:
     # model = SemiSeq2Seq(feature_length, hidden_size, feature_length, batch_size,
     #                          cla_dim, en_num_layers, de_num_layers, cla_num_layers, fix_state, fix_weight,
@@ -93,6 +93,8 @@ if __name__ == '__main__':
             trainer.loop(para.epoch,  para.train_loader, para.test_loader,
                          scheduler=para.model_scheduler, print_freq=para.print_every,
                          save_freq=para.save_freq)
+            # trainer.get_class(para.train_loader, 'train')
+            # trainer.get_class(para.test_loader, 'test')
     # model_tmp.encode = model_trained.seq.encoder
     # model_tmp.classifier = model_trained.classifier
     # ps_semilabel = iter_label(0.99, dataset_train.semi_old, model_tmp, train_loader_full)

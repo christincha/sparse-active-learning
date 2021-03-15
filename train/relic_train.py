@@ -68,7 +68,12 @@ class relic_train_copy:
         #dif = torch.abs(sort1[:,-1]- prob2[np.arange(sort2.shape[0]), cla_2[:,-1]])
         #vr1 = list(range(p1.shape[0]))#torch.random.shuffle(torch.arange(len(dif)))  #torch.argsort(dif)
         #random.shuffle(vr1)
-        vr1 = torch.argsort(sort1[:,-1])
+        vr1 = torch.argsort(sort2[:,-1])
+        for i in range(len(vr1)):
+            # if unlab_id[vr1[-i]] and cla_2[vr1[-i],-1] != cla_1[vr1[-i], -1]:
+            #     return vr1[-i]
+            if unlab_id[vr1[i]] and cla_1[vr1[i] , -1]!=cla_2[vr1[i], -1]:
+                return  vr1[i]
         for i in range(len(vr1)):
             # if unlab_id[vr1[-i]] and cla_2[vr1[-i],-1] != cla_1[vr1[-i], -1]:
             #     return vr1[-i]
@@ -216,7 +221,7 @@ class relic_train_copy:
             #     self.re_initialize()
             self.train(train_data, print_freq)
 
-            if scheduler is not None:
+            if scheduler is not None and self.epoch >0:
                 scheduler.step()
             print("------ Testing epochs: {} ------".format(ep))
             self.test(test_data, print_freq)
@@ -246,6 +251,49 @@ class relic_train_copy:
         path_model = os.path.join(path, '%s_P%d_epoch%d' % (
             self.network, self.percentage * 100, epoch))
         save_checkpoint(self.model, epoch, self.optimizer, loss, path_model)
+
+    def save(self, epoch, loss=0, **kwargs):
+        path = './reconstruc_out/model/'
+        if not os.path.exists(path):
+            os.mkdir(path)
+        for item in os.listdir(path):
+            if item.startswith(os.path.join(path,'%s_P%d' % (
+                    self.network, self.percentage * 100))):
+                open(path + item,
+                     'w').close()  # overwrite and make the file blank instead - ref: https://stackoverflow.com/a/4914288/3553367
+                os.remove(path + item)
+
+        path_model = os.path.join(path,'%s_P%d_epoch%d' % (
+            self.network, self.percentage * 100, epoch))
+        save_checkpoint(self.model, epoch, self.optimizer, loss, path_model)
+
+    def get_class(self, data_loader, mod):
+        # 1 max prob of original input,  2. prob oftreconstruced same class as original input, # max prob of reconstructed
+        with torch.no_grad():
+            pall = torch.zeros((len(data_loader.dataset),3)).to(self.device)
+            call = torch.zeros((len(data_loader.dataset),3)).to(self.device) # 1predict classre 2 constracut claa 3 real class
+            start = 0
+            for it, (in1, in2, len1, len2, label, semi, idx) in enumerate(data_loader):
+                end = start + len(id)
+                input_tensor = data.to(device)
+                en_hi, de_out, cla_pre = self.model(input_tensor, seq_len)
+                cla_pre_trans = self.model.en_cla_forward(de_out.detach(), seq_len)
+                po = torch.softmax(cla_pre, dim=-1)
+                ido = torch.sort(po)[-1][:, -1]
+                pt = torch.softmax(cla_pre_trans, dim=-1)
+                idt = torch.sort(pt)[-1][:, -1]
+                pall[start:end, 0] = po[np.arange(len(id)), ido]
+                pall[start:end, 1] = pt[np.arange(len(id)), ido]
+                pall[start:end, 2] = pt[np.arange(len(id)), idt]
+                call[start:end, 0] = ido
+                call[start:end, 1] = idt
+                call[start:end, 2] = torch.tensor(label).to(device)
+                start = end
+            path = './reconstruc_out/result_ana/'
+            if not os.path.exists(path):
+                os.mkdir(path)
+        np.save(os.path.join(path, mod+'prob.py'), pall.cpu().numpy())
+        np.save(os.path.join(path, mod+'class.py'), call.cpu().numpy())
 
 if __name__ == '__main__':
     import torch.nn as nn

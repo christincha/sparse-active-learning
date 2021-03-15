@@ -110,3 +110,38 @@ def test_extract_hidden_ps(model, data_train, data_eval, alpha):
             start = start + step
 
     return hidden_train_tmp.cpu().numpy(), hidden_eval_tmp.cpu().numpy(), label_list_train.tolist(), label_list_eval.tolist(), label_train_semi, label_eval_semi
+
+def test_extract_hidden_iter(model, data_train, alpha, feature_size=2048):
+    label_list_train = []
+    label_list_eval = []
+    repeat = 1
+    train_length = len(data_train.dataset)
+    hidden_train_tmp = torch.empty((repeat*train_length, feature_size)).to(device)
+    label_train_semi = np.zeros(repeat*train_length, dtype=int)
+    label_train_iter = np.zeros(repeat*train_length, dtype=int)
+
+    label_list_train = np.zeros((repeat*train_length), dtype=int)
+
+
+    for isample in range(repeat):
+        start = train_length*isample
+        for ith, (ith_data, seq_len, label, semi, index) in enumerate(data_train):
+            input_tensor = ith_data.to(device)
+            # label_list_train = label_list_train + label
+
+            step = ith_data.shape[0]
+            if alpha == 0:
+                # print(input_tensor.size(), len(seq_len))
+                en_hi, de_out = model(input_tensor, seq_len)
+                cla_pre = None
+            else:
+                tmp = model(input_tensor, seq_len)
+                en_hi = tmp[0]
+            label_list_train[start:start + step] = np.asarray(label)
+            label_train_semi[start:start + step] = semi
+            label_train_iter[start:start + step] = index
+            hidden_train_tmp[start:start + step, :] = en_hi[0, :, :].detach()
+            start = start + step
+
+
+    return hidden_train_tmp.cpu().numpy(), label_list_train.tolist(), label_train_semi, label_train_iter

@@ -26,7 +26,7 @@ class SubSeq_Train(ic_train):
             if i == 0:
                 loss_list = self.cr_cla(cla_pre[i,:,:], label)
             else:
-                loss_list += self.cr_cla(cla_pre[i,:,:], label)
+                loss_list += 1/8*self.cr_cla(cla_pre[i,:,:], label)
         return loss_list
 
     def _iteration_step(self, input_tensor, seq_len, label, model, optimizer, criterion_seq, criterion_cla, alpha):

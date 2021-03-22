@@ -17,7 +17,7 @@ from torch import optim
 import torch.nn.functional as F
 from  data.data_loader import *
 from data.data_loader import NO_LABEL
-from  ssTraining.clustering_classification import *
+#from  ssTraining.clustering_classification import *
 import time
 from  ssTraining.extract_hidden import *
 class ic_train:

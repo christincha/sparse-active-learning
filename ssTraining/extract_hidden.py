@@ -135,8 +135,7 @@ def test_extract_hidden_iter(model, data_train, alpha, feature_size=2048):
                 en_hi, de_out = model(input_tensor, seq_len)
                 cla_pre = None
             else:
-                tmp = model(input_tensor, seq_len)
-                en_hi = tmp[0]
+                en_hi, de_out, cla_pre = model(input_tensor, seq_len)
             label_list_train[start:start + step] = np.asarray(label)
             label_train_semi[start:start + step] = semi
             label_train_iter[start:start + step] = index

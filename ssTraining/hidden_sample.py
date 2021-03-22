@@ -22,9 +22,9 @@ import torch.nn as nn
 import random
 from scipy.spatial.distance import pdist, squareform
 
-def iter_kmeans_cluster(train_set, test_set, train_label,
-                        test_label, train_id, pred_id, ncluster=10,
-                        select_method='Random', beta=1):
+def iter_kmeans_cluster(train_set,  train_label,
+                         train_id,  ncluster=10,
+                         beta=1):
     train_label = np.asarray(train_label)
 
     kmeans = KMeans(ncluster, init='k-means++', max_iter=500, random_state=0).fit(train_set)

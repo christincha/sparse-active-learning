@@ -12,12 +12,14 @@ import random
 import torch
 import torch.nn as nn
 from ssTraining.SeqModel import *
+from ssTraining.hidden_sample import *
+from  ssTraining.extract_hidden import test_extract_hidden_iter
 from utility.utilities import *
 from torch import optim
 import torch.nn.functional as F
 from  data.data_loader import *
 from data.data_loader import NO_LABEL
-from  ssTraining.clustering_classification import *
+#from  ssTraining.clustering_classification import *
 import time
 from  ssTraining.extract_hidden import *
 class ic_train:
@@ -75,7 +77,7 @@ class ic_train:
         with torch.no_grad():
             cla_pre_trans = self.model.en_cla_forward(output,seq_len)
             pre_o = torch.softmax(cla_pre, dim=-1)
-            ido = torch.sort(pre_o)[-1][:,-1]
+            po, ido = torch.sort(pre_o)
             pre_trans = torch.softmax(cla_pre_trans, dim=-1)
             p_re, idre = torch.sort(pre_trans)
 
@@ -85,10 +87,17 @@ class ic_train:
             # for i in range(len(vr1)):
             #     if unlab_id[vr1[i]]:
             #         return vr1[i]
-            vr1 = torch.argsort(p_re[:,-1])
-            for i in range(len(vr1)):
-                if unlab_id[vr1[i]] and (ido[vr1[i]]!=idre[vr1[i], -1]):
-                    return vr1[i]
+            p = random.uniform(0,1)
+            if p >=0.5:
+                vr1 = torch.argsort(p_re[:,-1])
+                for i in range(len(vr1)):
+                    if unlab_id[vr1[i]] and (ido[vr1[i], -1]!=idre[vr1[i], -1]): # vr1[i] is the 0-N batch pos
+                            return vr1[i]
+            else:
+                vr1 = torch.argsort(po[:, -1])
+                for i in range(len(vr1)):
+                    if unlab_id[vr1[i]]:
+                        return vr1[i]
 
 
     def _iteration(self, data_loader, print_freq, is_train=True):
@@ -115,7 +124,7 @@ class ic_train:
 
             self.global_step += 1
             if is_train:
-                if self.labeled_num < self.target_num and self.epoch%5==0:
+                if self.labeled_num < self.target_num and self.epoch in [2, 5, 10,15,20]:
                     labeled_bs +=1
                     pos = self.select_sample_id(indicator, cla_pre, seq_len,de_out)
                     self.select_ind[self.labeled_num] = id[pos]
@@ -207,6 +216,7 @@ class ic_train:
 
 
     def loop(self, epochs, train_data, test_data, scheduler=None, print_freq=-1, save_freq=1):
+        self.initial_sample(train_data)
         for ep in range(epochs):
             self.epoch = ep
             print("------ Training epochs: {} ------".format(ep))
@@ -263,5 +273,12 @@ class ic_train:
         np.save(os.path.join(path, mod+'class.py'), call.cpu().numpy())
 
 
-    def initial_sample(self):
-        pass
+    def initial_sample(self, train_loader,):
+        hidden, label, semi, index = test_extract_hidden_iter(self.model, train_loader, alpha=0.5)
+        train_id_list, dis_list, dis_list_prob, cluster_label  = iter_kmeans_cluster(hidden,label, index, ncluster=800)
+        tmp = SampleFromCluster(train_id_list, dis_list, dis_list_prob, 'top', 0.02)
+        for i in range(len(tmp)):
+            self.semi_label[tmp[i]] = train_loader.dataset.label[tmp[i]]
+            self.select_ind[i] = index[tmp[i]]
+
+        self.labeled_num += len(tmp)

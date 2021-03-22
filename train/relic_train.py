@@ -106,7 +106,7 @@ class relic_train_copy:
                 labeled_loss = torch.sum(self.cr_cla(p1, semi) + self.cr_cla(p2, semi))
                 labeled_bs = len(indicator) - sum(indicator)
 
-                if self.labeled_num < self.target_num and self.epoch%5==0:
+                if self.labeled_num < self.target_num and self.epoch%3==0:
                     pos = self.select_sample_id(indicator, p1, p2)
                     self.select_ind[self.labeled_num] = idx[pos]
                     self.labeled_num +=1
@@ -119,8 +119,14 @@ class relic_train_copy:
                 else:
                     new_loss = 0
                     loss_cla = labeled_loss
+                if self.labeled_num < self.target_num:
+                    loss_kl= 0
+                    loss = loss_kl + loss_cla
 
-                loss_kl = self.cr_kl(p1[indicator], p2[indicator]) / 2 + self.cr_kl(p2[indicator], p1[indicator]) / 2
+                else:
+                    loss_kl = self.cr_kl(p1[indicator], p2[indicator]) / 2 + self.cr_kl(p2[indicator], p1[indicator]) / 2
+                    loss = loss_kl + loss_cla
+                    loss_kl = loss_kl.item()
 
                 loss = loss_kl + loss_cla
                 self.optimizer.zero_grad()
@@ -134,11 +140,12 @@ class relic_train_copy:
                 unlabeled_loss = 0
                 loss_kl = self.cr_kl(p1, p2) / 2 + self.cr_kl(p2, p1) / 2
                 loss = loss_cla + loss_kl
+                loss_kl = loss_kl.item()
 
             labeled_n += labeled_bs
 
-            loop_losscla.append(loss_cla.item() / len(data_loader))
-            loop_losskl.append(loss_kl.item() / len(data_loader))
+            loop_losscla.append(loss_cla/ len(data_loader))
+            loop_losskl.append(loss_kl/ len(data_loader))
             acc1 = semi.eq(p1.max(1)[1]).sum().item()
             acc2 = semi.eq(p2.max(1)[1]).sum().item()
             accuracy1.append(acc1)
@@ -147,16 +154,16 @@ class relic_train_copy:
                 if is_train:
                     print(
                     f"[{mode}]loss[{it:<3}]\t labeled loss: {labeled_loss.item():.3f}\t new loss: {new_loss:.3f}\t"
-                    f" loss kl: {loss_kl.item():.3f}\t  Acc1: {nan_to_num(acc1 / labeled_bs):.3%}\t"
+                    f" loss kl: {loss_kl:.3f}\t  Acc1: {nan_to_num(acc1 / labeled_bs):.3%}\t"
                     f"Acc2 : {nan_to_num(acc2 / labeled_bs):.3%} labeled_num:{self.labeled_num:.1f} ")
                 else:
                     print(
                         f"[{mode}]loss[{it:<3}]\t cla loss: {labeled_loss.item():.3f}\t"
-                        f" loss kl: {loss_kl.item():.3f}\t Acc1: {acc1 / labeled_bs:.3%}\t"
+                        f" loss kl: {loss_kl:.3f}\t Acc1: {acc1 / labeled_bs:.3%}\t"
                         f"Acc2 : {acc1 / labeled_bs:.3%} ")
             if self.writer:
                 self.writer.add_scalar('loss/'+mode + '_global_loss_cla', loss_cla.item(), self.global_step)
-                self.writer.add_scalar('loss/'+mode + '_global_loss_kl', loss_kl.item(), self.global_step)
+                self.writer.add_scalar('loss/'+mode + '_global_loss_kl', loss_kl, self.global_step)
                 self.writer.add_scalar('acc/'+mode + '_global_accuracy_p1', acc1 / labeled_bs, self.global_step)
                 self.writer.add_scalar('acc/'+mode + '_global_accuracy_p2', acc2 / labeled_bs, self.global_step)
 

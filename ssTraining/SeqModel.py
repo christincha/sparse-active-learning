@@ -114,3 +114,62 @@ class SemiSeq2Seq(nn.Module):
         return  pred
 
 
+class MultiSemiSeq2Seq(nn.Module):
+    # quesstion: use multi-head, multi-classifier, or one head multi-diemension
+    def __init__(self, en_input_size, en_hidden_size, output_size, batch_size, cla_dim,
+                 en_num_layers=3, de_num_layers=1, cl_num_layers=1, num_head = 5, head_out_dim = 1024,
+                 fix_state=False, fix_weight=False, teacher_force=False):
+        super(MultiSemiSeq2Seq, self).__init__()
+        self.num_head = num_head
+        self.seq = seq2seq(en_input_size, en_hidden_size, output_size, batch_size,
+                           en_num_layers=en_num_layers, de_num_layers=de_num_layers,
+                           fix_state=fix_state, fix_weight=fix_weight, teacher_force=teacher_force)
+        heads = []
+        for i in range(num_head):
+            heads.append(nn.Linear(en_hidden_size*2, head_out_dim).to(device))
+
+                # nn_list.append(nn.Dropout(0.3).to(device))
+            #heads.append(nn.ReLU().to(device))
+        self.heads= nn.ModuleList(heads)
+
+        self.classifier = Classification(head_out_dim, cla_dim, cl_num_layers)
+        self.fix_head()
+
+    def forward(self, input_tensor, seq_len):
+        encoder_hidden, deout = self.seq(input_tensor, seq_len)
+
+        # choose a random head
+        random_head = random.randint(0, self.num_head-1)
+        cur_head = self.heads[random_head]
+        classifier_in = cur_head(encoder_hidden[0,:,:])
+        pred, inter = self.classifier(classifier_in)
+
+        # return encoder_hidden, deout, pred
+        return encoder_hidden, deout, pred
+
+    def en_cla_forward(self, input_tensor, seq_len):
+        encoder_hidden = self.seq.encoder(input_tensor, seq_len)
+
+        random_head = random.randint(0, self.num_head - 1)
+        cur_head = self.heads[random_head]
+        classifier_in = cur_head(encoder_hidden[0, :, :])
+        pred, inter = self.classifier(classifier_in)
+        return  pred
+
+    def check_output(self, input_tensor, seq_len):
+        with torch.no_grad():
+            encoder_hidden = self.seq.encoder(input_tensor, seq_len)
+            predict = []
+            for i in range(self.num_head):
+                cur_head = self.heads[i]
+                classifier_in = cur_head(encoder_hidden[0, :, :])
+                pred, inter = self.classifier(classifier_in)
+                pred = torch.softmax(pred, dim=-1)
+                predict.append(pred)
+
+        return torch.stack(predict)
+
+    def fix_head(self):
+        for child in self.heads.children():
+            for param in child.parameters():
+                param.requires_grad = False

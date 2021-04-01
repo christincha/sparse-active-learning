@@ -57,7 +57,18 @@ class para_re_sel(paramerters):
         self.af = 0.0001
 
         self.past_acc = 4
+        # parameters for head
+        self.num_head = 5
+        self.head_out_dim = 1024
 
+    def get_model(self):
+        self.model = MultiSemiSeq2Seq(self.feature_length, self.hidden_size, self.feature_length, self.batch_size,
+                                    self.cla_dim, self.en_num_layers, self.de_num_layers, self.cla_num_layers, self.num_head, self.head_out_dim, self.fix_state, self.fix_weight,
+                                    self.teacher_force)
+
+        if self.pre_train and not self.Checkpoint:
+            self.old_model = seq2seq(self.feature_length, self.hidden_size, self.feature_length, self.batch_size,
+                   self.en_num_layers, self.de_num_layers, self.fix_state, self.fix_weight,self.teacher_force).to(self.device)
 
 if __name__ == '__main__':
     para = para_re_sel()
@@ -93,7 +104,7 @@ if __name__ == '__main__':
             trainer.loop(para.epoch,  para.train_loader, para.test_loader,
                          scheduler=para.model_scheduler, print_freq=para.print_every,
                          save_freq=para.save_freq)
-            #trainer.random_classifier(para.train_loader)
+            # trainer.random_classifier(para.train_loader)
             # trainer.get_class(para.train_loader, 'train')
             # trainer.get_class(para.test_loader, 'test')
     # model_tmp.encode = model_trained.seq.encoder

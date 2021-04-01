@@ -51,6 +51,7 @@ class ic_train:
         self.af = af
         self.target_num = int(np.round(len(train_loader.dataset)*percentage))
         self.semi_label = torch.tensor(train_loader.dataset.semi_label,dtype=torch.long).to(device)
+        self.total_output = torch.zeros(len(train_loader.dataset.semi_label), 60).to(device)
         self.labeled_num = 0
         self.all_label = []
         self.select_ind = np.zeros(self.target_num)
@@ -63,6 +64,7 @@ class ic_train:
             en_hi, de_out, cla_pre = model(input_tensor, seq_len)
 
             cla_loss = criterion_cla(cla_pre, label)
+            pre_o = torch.softmax(cla_pre.detach(), dim=-1)
             mask = torch.zeros([len(seq_len), max(seq_len)]).to(device)
             for ith_batch in range(len(seq_len)):
                 mask[ith_batch, 0:seq_len[ith_batch]] = 1
@@ -73,13 +75,16 @@ class ic_train:
 
             return cla_loss, seq_loss, en_hi, de_out.detach(), cla_pre
 
-    def select_sample_id(self, unlab_id, cla_pre, seq_len, output):
+    def select_sample_id_reconstruct(self, unlab_id, cla_pre, seq_len, output, id):
         with torch.no_grad():
-            cla_pre_trans = self.model.en_cla_forward(output,seq_len)
+            #cla_pre_trans = self.model.en_cla_forward(output,seq_len)
             pre_o = torch.softmax(cla_pre, dim=-1)
-            po, ido = torch.sort(pre_o)
-            pre_trans = torch.softmax(cla_pre_trans, dim=-1)
-            p_re, idre = torch.sort(pre_trans)
+            self.total_output[id, :] = self.total_output[id, :] - pre_o
+
+            dif, id_dif = torch.sort(self.total_output[id, :])
+            # po, ido = torch.sort(pre_o)
+            # pre_trans = torch.softmax(cla_pre_trans, dim=-1)
+            # p_re, idre = torch.sort(pre_trans)
 
             #dif = torch.abs(pre_o[np.arange(pre_o.shape[0]), indices] - pre_trans[np.arange(pre_o.shape[0]), indices])
             #dif = torch.sum(torch.nn.functional.kl_div(pre_trans, pre_o, reduction='none'), dim=-1)
@@ -87,17 +92,33 @@ class ic_train:
             # for i in range(len(vr1)):
             #     if unlab_id[vr1[i]]:
             #         return vr1[i]
-            p = random.uniform(0,1)
-            if p >=0.5:
-                vr1 = torch.argsort(p_re[:,-1])
-                for i in range(len(vr1)):
-                    if unlab_id[vr1[i]] and (ido[vr1[i], -1]!=idre[vr1[i], -1]): # vr1[i] is the 0-N batch pos
-                            return vr1[i]
-            else:
-                vr1 = torch.argsort(po[:, -1])
-                for i in range(len(vr1)):
-                    if unlab_id[vr1[i]]:
-                        return vr1[i]
+            # p = random.uniform(0,1)
+            # if p >=0.5:
+            #     vr1 = torch.argsort(p_re[:,-1])
+            #     for i in range(len(vr1)):
+            #         if unlab_id[vr1[i]] and (ido[vr1[i], -1]!=idre[vr1[i], -1]): # vr1[i] is the 0-N batch pos
+            #                 return vr1[i]
+            # else:
+            #     vr1 = torch.argsort(po[:, -1])
+            vr1 = torch.argsort(id_dif[:,0])
+            for i in range(len(vr1)):
+                if unlab_id[vr1[-i]]:
+                    return vr1[-i]
+    def select_sample_id(self, input_tensor, seq_len, unlab_id):
+        pred_pro = self.model.check_output(input_tensor, seq_len)
+        pred = torch.argmax(pred_pro, dim=-1)
+        mod_value = torch.mode(pred.T, keepdim=True, dim=-1)
+        count = torch.sum(pred.T==torch.cat([mod_value.values]*self.model.num_head, dim=-1), dim=-1)
+        pos = torch.logical_and(count>=2, count<=4) #N
+
+        pred_pro = torch.mean(pred_pro, dim=0)
+        id_dif  = torch.sort(pred_pro)[0]
+        id_dif = id_dif[:,-1] - id_dif[:,-2] # margin difference
+        vr1 = torch.argsort(id_dif)
+        for i in range(len(vr1)):
+            if unlab_id[vr1[i]] and pos[vr1[i]]: # select samples that has minimum MI but also has discrpancy between 5 output
+                return vr1[i]
+
 
 
     def _iteration(self, data_loader, print_freq, is_train=True):
@@ -126,7 +147,8 @@ class ic_train:
             if is_train:
                 if self.labeled_num < self.target_num and self.epoch in [2, 5, 10,15,20]:
                     labeled_bs +=1
-                    pos = self.select_sample_id(indicator, cla_pre, seq_len,de_out)
+                    #pos = self.select_sample_id(indicator, cla_pre, seq_len,de_out, id)
+                    pos = self.select_sample_id(input_tensor, seq_len, indicator)
                     self.select_ind[self.labeled_num] = id[pos]
                     self.labeled_num += 1
                     self.semi_label[id[pos]] = label[pos]
@@ -227,7 +249,8 @@ class ic_train:
             self.test(test_data, print_freq)
             if ep % save_freq == 0:
                 self.save(ep)
-                self.get_class(train_data, 'train_ep%d'%ep)
+                # check the classification output
+                #self.get_class(train_data, 'train_ep%d'%ep)
 
     def save(self, epoch, loss=0, **kwargs):
         path = './reconstruc_out/model/'
@@ -275,10 +298,33 @@ class ic_train:
 
     def initial_sample(self, train_loader,):
         hidden, label, semi, index = test_extract_hidden_iter(self.model, train_loader, alpha=0.5)
-        train_id_list, dis_list, dis_list_prob, cluster_label  = iter_kmeans_cluster(hidden,label, index, ncluster=800)
-        tmp = SampleFromCluster(train_id_list, dis_list, dis_list_prob, 'top', 0.02)
+        train_id_list, dis_list, dis_list_prob, cluster_label  = iter_kmeans_cluster(hidden,label, index, ncluster=400)
+        tmp = SampleFromCluster(train_id_list, dis_list, dis_list_prob, 'top', 0.01)
         for i in range(len(tmp)):
             self.semi_label[tmp[i]] = train_loader.dataset.label[tmp[i]]
             self.select_ind[i] = index[tmp[i]]
 
         self.labeled_num += len(tmp)
+
+    def random_classifier(self, data_loader):
+        gr_label = np.asarray(data_loader.dataset.label)
+        pre_label = torch.zeros(10, len(data_loader.dataset.label), 60).to(self.device)
+        for i in range(10):
+
+            with torch.no_grad():
+                for child in list(self.model.children()):
+                    print(child)
+                    for param in list(child.parameters()):
+                        # if param.dim() == 2
+                        #   nn.init.xavier_uniform_(param)
+                        nn.init.uniform_(param, a=-0.05, b=0.05)
+                for it, (data, seq_len, label, semi, id) in enumerate(data_loader):
+                    input_tensor = data.to(device)
+                    en_hi, de_out, cla_pre = self.model(input_tensor, seq_len)
+                    pre_label[i, id, :] = torch.softmax(cla_pre, dim=-1)
+        path = './reconstruc_out/result_ana/'
+        if not os.path.exists(path):
+            os.mkdir(path)
+
+        np.save('ground_truth', gr_label)
+        np.save('random_cla_output', pre_label.cpu().numpy())

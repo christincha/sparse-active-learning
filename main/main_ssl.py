@@ -48,6 +48,7 @@ k = 2 # top k accuracy
 dataset_train = MySemiDataset(os.path.join(root_path, ProjectFolderName, train_data), 0.05, timediff=False)
 dataset_test =  MySemiDataset(os.path.join(root_path, ProjectFolderName, test_data), 1,timediff=False)
 # np.save('./labels/base_semiLabel.npy', dataset_train.semi_label)
+
 semi_label = np.load('./labels/base_semiLabel.npy')
 lb = np.copy(np.asarray(dataset_train.label))+1
 lb[lb>60]=1

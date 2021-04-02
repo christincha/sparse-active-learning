@@ -2,6 +2,7 @@ output/
 seq2seq_model/
 .DS_Store
 relic_out/
+relic_multi_out/
 reconstruc_out/
 subseq_out
 test.py

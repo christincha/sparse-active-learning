@@ -1,84 +1,31 @@
-
+from train.relic_train import relic_train_copy, nan_to_num
 import os
 from utility.utilities import *
 from torch import optim
 from data.relic_Dataset import NO_LABEL
-from pathlib import Path
-import torch.nn as nn
-import random
-from copy import deepcopy
-def nan_to_num(input):
-    if torch.isnan(input):
-        return 0
-    else:
-        return input
 
-class relic_train_copy:
+class relic_multi_train(relic_train_copy):
     def __init__(self, epoch, train_loader, eval_loader,
                  model, optimizer, cr_cla, cr_kl, k, writer,
                  network, device, T1, T2, af, labeled_bs, past_acc=0.3, percentage=0.05, en_num_l=3, hid_s=1024, few_knn=True, current_time= None):
-        self.epoch = epoch
-        self.train_loader = train_loader
-        self.eval_load = eval_loader
-        self.model = model
-        #self.model_copy = deepcopy(model)
-        self.optimizer = optimizer
-        self.cr_cla = cr_cla
-        self.cr_kl = cr_kl
-        self.k = k
-        self.writer = writer
-        self.network = network
-        self.past_acc = past_acc
-        self.percentage = percentage
-        self.en_num_l = en_num_l
-        self.hid_d = hid_s
-        self.few_knn = few_knn
-        self.device = device
-        self.global_step = 0
-        self.T1 = T1
-        self.T2 = T2
-        self.af = af
-        self.labeled_bs = labeled_bs
-        self.semi_label = torch.tensor(train_loader.dataset.semi_label,dtype=torch.long).to(device)
-        self.labeled_num = len(self.semi_label) - sum(self.semi_label==NO_LABEL)
-        self.target_num = np.int(np.round(len(self.semi_label)*percentage))
-        self.select_ind = np.zeros(self.target_num)
-        self.current_time = current_time
-        self.all_label = []
-        self.save_label = True
+        super().__init__(epoch, train_loader, eval_loader,
+                 model, optimizer, cr_cla, cr_kl, k, writer,
+                 network, device, T1, T2, af, labeled_bs, past_acc=0.3, percentage=0.05, en_num_l=3, hid_s=1024, few_knn=True, current_time= None)
 
-    def correct_label(self, unlab_id, p1, p2,th=0.5):
-        prob1 = torch.exp(p1)
-        prob2 = torch.exp(p2)
-        sort1, cla_1 = torch.sort(prob1, dim=-1)
-        sort2, cla_2 = torch.sort(prob2, dim=-1)
-        vr1 = sort1[ :, -1]
-        vr2 = sort2[:, -1]
 
-        meetrq = torch.logical_and(vr1 > th, vr2 > th)
+    def select_sample_id(self, input1, input2, seq_len1, seq_len2, unlab_id):
+        # mi is minimized
+        # var is maximized
+        pre1, pre2 = self.model.check_output(input1, input2, seq_len1,seq_len2) # num_heads * batch_size * 60
+        ave_pro = torch.mean(torch.cat((pre1, pre2)), dim=0)
 
-        return torch.logical_and(unlab_id, meetrq)
-
-    def select_sample_id(self, unlab_id,p1,p2):
-
-        prob1 = torch.exp(p1)
-        prob2 = torch.exp(p2)
-        sort1, cla_1 = torch.sort(prob1, dim=-1)
-        sort2, cla_2 = torch.sort(prob2, dim=-1)
-        #dif = torch.abs(sort1[:,-1]- prob2[np.arange(sort2.shape[0]), cla_2[:,-1]])
-        #vr1 = list(range(p1.shape[0]))#torch.random.shuffle(torch.arange(len(dif)))  #torch.argsort(dif)
-        #random.shuffle(vr1)
-        vr1 = torch.argsort(sort2[:,-1])
+        id_dif = torch.sort(ave_pro)[0]
+        id_dif = id_dif[:, -1] - id_dif[:, -2]  # margin difference
+        vr1 = torch.argsort(id_dif)
         for i in range(len(vr1)):
-            # if unlab_id[vr1[-i]] and cla_2[vr1[-i],-1] != cla_1[vr1[-i], -1]:
-            #     return vr1[-i]
-            if unlab_id[vr1[i]] and cla_1[vr1[i] , -1]!=cla_2[vr1[i], -1]:
-                return  vr1[i]
-        for i in range(len(vr1)):
-            # if unlab_id[vr1[-i]] and cla_2[vr1[-i],-1] != cla_1[vr1[-i], -1]:
-            #     return vr1[-i]
             if unlab_id[vr1[i]]:
-                return  vr1[i]
+            # select samples that has minimum MI but also has discrpancy between 5 output
+                return vr1[i]
 
     def _iteration(self, data_loader, print_freq, is_train=True):
         loop_losscla = []
@@ -107,7 +54,7 @@ class relic_train_copy:
                 labeled_bs = len(indicator) - sum(indicator)
 
                 if self.labeled_num < self.target_num and self.epoch%3==0:
-                    pos = self.select_sample_id(indicator, p1, p2)
+                    pos = self.select_sample_id(in1, in2, len1, len2, indicator)
                     self.select_ind[self.labeled_num] = idx[pos]
                     self.labeled_num +=1
                     self.semi_label[idx[pos]] = label[pos]
@@ -190,63 +137,8 @@ class relic_train_copy:
                         np.save(os.path.join('relic_out/label', self.current_time), self.select_ind)
                         self.save_label = False
 
-    def unlabeled_weight(self):
-        alpha = 0
-        if self.epoch > self.T1:
-            alpha = (self.epoch - self.T1) / (self.T2 - self.T1) * self.af
-            if self.epoch > self.T2:
-                alpha =  self.af
-
-        return alpha
-
-    def train(self, data_loader, print_freq=20):
-        self.model.train()
-        with torch.enable_grad():
-            self._iteration(data_loader, print_freq)
-
-    def test(self, data_loader, print_freq=10):
-        self.model.eval()
-        with torch.no_grad():
-            self._iteration(data_loader, print_freq, is_train=False)
-
-    def update_parameter(self, tao=0.8):
-        # mp = list(self.model.parameters())
-        # mpc = list(self.model_copy.parameters())
-        # n = len(mp)
-        # for i in range(0, n):
-        #     mpc[i].data[:] = tao*mpc[i].data[:] + (1-tao)*mp[i].data[:]
-        del self.model_copy
-        self.model_copy = deepcopy(self.model)
-
-    def loop(self, epochs, train_data, test_data, scheduler=None, print_freq=-1, save_freq=1):
-        for ep in range(epochs):
-            self.epoch = ep
-            if ep == 0:
-                self.save(ep)
-            print("------ Training epochs: {} ------".format(ep))
-            # if (ep)%50==0:
-            #     self.update_parameter()
-            #     self.re_initialize()
-            self.train(train_data, print_freq)
-
-            if scheduler is not None and self.epoch >0:
-                scheduler.step()
-            print("------ Testing epochs: {} ------".format(ep))
-            self.test(test_data, print_freq)
-            if (ep+1) % save_freq == 0:
-                self.save(ep)
-
-    def re_initialize(self):
-        with torch.no_grad():
-            for child in list(self.model.children()):
-                print(child)
-                for param in list(child.parameters()):
-                    # if param.dim() == 2:
-                    #   nn.init.xavier_uniform_(param)
-                    nn.init.uniform_(param, a=-0.05, b=0.05)
-
     def save(self, epoch, loss=0, **kwargs):
-        path = './relic_out/model/'
+        path = './relic_multi_out/model/'
         if not os.path.exists(path):
             os.mkdir(path)
         for item in os.listdir(path):
@@ -259,16 +151,3 @@ class relic_train_copy:
         path_model = os.path.join(path, '%s_P%d_epoch%d' % (
             self.network, self.percentage * 100, epoch))
         save_checkpoint(self.model, epoch, self.optimizer, loss, path_model)
-
-
-if __name__ == '__main__':
-    import torch.nn as nn
-    lambda1 = lambda epoch: epoch // 30
-    lambda2 = lambda epoch: 0.95 ** epoch
-    model =  nn.Linear(10, 20)
-    optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=0.1)
-    lambda1 = lambda ith_epoch: 0.95 ** (ith_epoch // 5)
-    scheduler = optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=[lambda1])
-    for epoch in range(100):
-        scheduler.step()
-        print(optimizer.param_groups[0]['lr'])

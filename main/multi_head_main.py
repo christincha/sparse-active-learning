@@ -4,7 +4,12 @@
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 from __future__ import unicode_literals, print_function, division
 # load file
-from train.train_re_sel import *
+# from train.train_re_sel import *
+from train.seq_multi_train import recon_multi_train
+import torch
+from ssTraining.SeqModel import MultiSemiSeq2Seq, seq2seq
+from  data.data_loader import *
+from data.data_loader import NO_LABEL
 from torch.utils.tensorboard import SummaryWriter
 from utility.para_class import paramerters
 torch.cuda.set_device(1)
@@ -97,7 +102,7 @@ if __name__ == '__main__':
             print(' percentage %.2f' % (para.percentage))
             # training(epoch, train_loader, eval_loader,
             #          model, optimizer,  criterion_cla, k, file_output, network='SSLbaseline', percentage=0.05, en_num_l=en_num_layers, hid_s=hidden_size)
-            trainer = ic_train(para.epoch, para.train_loader, para.test_loader, para.print_every,
+            trainer = recon_multi_train(para.epoch, para.train_loader, para.test_loader, para.print_every,
                      para.model, para.optimizer, para.criterion_seq, para.criterion_cla, para.alpha, para.k, writer, para.past_acc,
                      para.root_path, para.network, para.percentage, para.en_num_layers, para.hidden_size, para.label_batch,
                      few_knn=para.few_knn, TrainPS=para.Checkpoint, T1= para.T1, T2 = para.T2, af = para.af, current_time=current_time)

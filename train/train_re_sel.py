@@ -115,7 +115,7 @@ class ic_train:
         # id_dif  = torch.sort(pred_pro)[0]
         # id_dif = id_dif[:,-1] - id_dif[:,-2] # margin difference
         # vr1 = torch.argsort(id_dif)
-        vr1 = (range(len(seq_len)))
+        vr1 = list(range(len(seq_len)))
         random.shuffle(vr1)
         print(len(seq_len))
         for i in range(len(vr1)):

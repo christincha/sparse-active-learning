@@ -145,6 +145,7 @@ def generate_dataloader(train_path, test_path, semi_label, batch_size, label_bat
     dataset_test = MySemiDataset(test_path, 1)
     if len(semi_label)==0:
         semi_label = -1*np.ones(len(dataset_train))
+    # pos decide where the sample is labled
     if len(semi_label)!=0 and pos:
         tmp = -1*np.ones(len(dataset_train))
         for i in semi_label:

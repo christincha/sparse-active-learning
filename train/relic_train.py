@@ -119,14 +119,10 @@ class relic_train_copy:
                 else:
                     new_loss = 0
                     loss_cla = labeled_loss
-                if self.labeled_num < self.target_num:
-                    loss_kl= 0
-                    loss = loss_kl + loss_cla
 
-                else:
-                    loss_kl = self.cr_kl(p1[indicator], p2[indicator]) / 2 + self.cr_kl(p2[indicator], p1[indicator]) / 2
-                    loss = loss_kl + loss_cla
-                    loss_kl = loss_kl.item()
+                loss_kl = self.cr_kl(p1[indicator], p2[indicator]) / 2 + self.cr_kl(p2[indicator], p1[indicator]) / 2
+                loss = loss_kl + loss_cla
+                loss_kl = loss_kl.item()
 
                 loss = loss_kl + loss_cla
                 self.optimizer.zero_grad()

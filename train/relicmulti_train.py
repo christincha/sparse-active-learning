@@ -10,7 +10,7 @@ class relic_multi_train(relic_train_copy):
                  network, device, T1, T2, af, labeled_bs, past_acc=0.3, percentage=0.05, en_num_l=3, hid_s=1024, few_knn=True, current_time= None):
         super().__init__(epoch, train_loader, eval_loader,
                  model, optimizer, cr_cla, cr_kl, k, writer,
-                 network, device, T1, T2, af, labeled_bs, past_acc=0.3, percentage=0.05, en_num_l=3, hid_s=1024, few_knn=True, current_time= None)
+                 network, device, T1, T2, af, labeled_bs, past_acc, percentage, en_num_l, hid_s, few_knn, current_time)
 
 
     def select_sample_id(self, input1, input2, seq_len1, seq_len2, unlab_id):
@@ -53,7 +53,7 @@ class relic_multi_train(relic_train_copy):
                 labeled_loss = torch.sum(self.cr_cla(p1, semi) + self.cr_cla(p2, semi))
                 labeled_bs = len(indicator) - sum(indicator)
 
-                if self.labeled_num < self.target_num and self.epoch%3==0:
+                if self.labeled_num < self.target_num and (self.epoch+1)%5==0:
                     pos = self.select_sample_id(in1, in2, len1, len2, indicator)
                     self.select_ind[self.labeled_num] = idx[pos]
                     self.labeled_num +=1
@@ -66,14 +66,10 @@ class relic_multi_train(relic_train_copy):
                 else:
                     new_loss = 0
                     loss_cla = labeled_loss
-                if self.labeled_num < self.target_num:
-                    loss_kl= 0
-                    loss = loss_kl + loss_cla
 
-                else:
-                    loss_kl = self.cr_kl(p1[indicator], p2[indicator]) / 2 + self.cr_kl(p2[indicator], p1[indicator]) / 2
-                    loss = loss_kl + loss_cla
-                    loss_kl = loss_kl.item()
+                loss_kl = self.cr_kl(p1[indicator], p2[indicator]) / 2 + self.cr_kl(p2[indicator], p1[indicator]) / 2
+                loss = loss_kl + loss_cla
+                loss_kl = loss_kl.item()
 
                 loss = loss_kl + loss_cla
                 self.optimizer.zero_grad()
@@ -134,7 +130,7 @@ class relic_multi_train(relic_train_copy):
                     img_HWC[:, :, 1] = 1 - img / 60
                     self.writer.add_image('selectiong process %d' % self.epoch, img_HWC, self.epoch, dataformats='HWC')
                     if len(self.all_label) == self.target_num and self.save_label:
-                        np.save(os.path.join('relic_out/label', self.current_time), self.select_ind)
+                        np.save(os.path.join('relic_multi_out/label', self.current_time), self.select_ind)
                         self.save_label = False
 
     def save(self, epoch, loss=0, **kwargs):

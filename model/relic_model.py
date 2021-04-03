@@ -48,7 +48,7 @@ class relic_multihead(nn.Module):
         self.fcl2 = FCN(head_out_dim, cla_dim, len(cla_dim))
         self.logsoftmax = nn.LogSoftmax(dim=-1)
         self.softmax = nn.Softmax(dim=-1)
-        self.fix_head()
+        #self.fix_head()
 
     def forward(self, input1, input2,  seq_len1,seq_len2):
         encoder_hidden1 = self.en1(input1, seq_len1)

@@ -19,7 +19,7 @@ from main.relic_main import paramerters
 class relic_multi_para(paramerters):
     def __init__(self):
         super().__init__()
-        self.num_head = 1
+        self.num_head = 5
         self.head_dim = 1024
         self.model = relic_multihead(self.feature_length, self.hidden_size, self.cla_dim,
                  en_num_layers=self.en_num_layers, cl_num_layers=self.cla_num_layers, num_head = self.num_head,

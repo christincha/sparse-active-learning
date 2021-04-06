@@ -1,4 +1,7 @@
 from train.relic_train import relic_train_copy, nan_to_num
+from ssTraining.SeqModel import *
+from ssTraining.hidden_sample import *
+from ssTraining.clustering_classification import remove_labeled_cluster
 import os
 from utility.utilities import *
 from torch import optim
@@ -11,21 +14,39 @@ class relic_multi_train(relic_train_copy):
         super().__init__(epoch, train_loader, eval_loader,
                  model, optimizer, cr_cla, cr_kl, k, writer,
                  network, device, T1, T2, af, labeled_bs, past_acc, percentage, en_num_l, hid_s, few_knn, current_time)
-
+        self.concate_data(20)
+        self.label_knn()
 
     def select_sample_id(self, input1, input2, seq_len1, seq_len2, unlab_id):
         # mi is minimized
         # var is maximized
         pre1, pre2 = self.model.check_output(input1, input2, seq_len1,seq_len2) # num_heads * batch_size * 60
-        ave_pro = torch.mean(torch.cat((pre1, pre2)), dim=0)
-
+        #ave_pro = torch.mean(torch.cat((pre1, pre2)), dim=0)
+        pred = torch.argmax(pre1, dim=-1)
+        mod_value = torch.mode(pred.T, keepdim=True, dim=-1)
+        count = torch.sum(pred.T==torch.cat([mod_value.values]*self.model.num_head, dim=-1), dim=-1)
+        pos = torch.logical_and(count>=1, count<=4) #N
+        ave_pro = torch.mean(pre1, dim=0)
         id_dif = torch.sort(ave_pro)[0]
         id_dif = id_dif[:, -1] - id_dif[:, -2]  # margin difference
         vr1 = torch.argsort(id_dif)
         for i in range(len(vr1)):
-            if unlab_id[vr1[i]]:
+            if unlab_id[vr1[i]] and pos[vr1[i]]:
             # select samples that has minimum MI but also has discrpancy between 5 output
                 return vr1[i]
+    # def select_sample_id(self, input1, input2, seq_len1, seq_len2, unlab_id):
+    #     # mi is minimized
+    #     # var is maximized
+    #     pre1, pre2 = self.model.check_output(input1, input2, seq_len1,seq_len2) # num_heads * batch_size * 60
+    #     var_pro = torch.var(torch.cat((pre1, pre2)), dim=0)
+    #     ave_pro = torch.mean(var_pro, dim=-1)
+    #     id_dif = torch.sort(ave_pro)[0]
+    #     #id_dif = id_dif[:, -1] - id_dif[:, -2]  # margin difference
+    #     vr1 = torch.argsort(id_dif)
+    #     for i in range(len(vr1)):
+    #         if unlab_id[vr1[i]]:
+    #         # select samples that has minimum MI but also has discrpancy between 5 output
+    #             return vr1[i]
 
     def _iteration(self, data_loader, print_freq, is_train=True):
         loop_losscla = []
@@ -53,7 +74,7 @@ class relic_multi_train(relic_train_copy):
                 labeled_loss = torch.sum(self.cr_cla(p1, semi) + self.cr_cla(p2, semi))
                 labeled_bs = len(indicator) - sum(indicator)
 
-                if self.labeled_num < self.target_num and (self.epoch+1)%5==0:
+                if self.labeled_num < self.target_num and self.epoch in [3,6, 10,15]:
                     pos = self.select_sample_id(in1, in2, len1, len2, indicator)
                     self.select_ind[self.labeled_num] = idx[pos]
                     self.labeled_num +=1
@@ -70,8 +91,6 @@ class relic_multi_train(relic_train_copy):
                 loss_kl = self.cr_kl(p1[indicator], p2[indicator]) / 2 + self.cr_kl(p2[indicator], p1[indicator]) / 2
                 loss = loss_kl + loss_cla
                 loss_kl = loss_kl.item()
-
-                loss = loss_kl + loss_cla
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
@@ -103,7 +122,7 @@ class relic_multi_train(relic_train_copy):
                     print(
                         f"[{mode}]loss[{it:<3}]\t cla loss: {labeled_loss.item():.3f}\t"
                         f" loss kl: {loss_kl:.3f}\t Acc1: {acc1 / labeled_bs:.3%}\t"
-                        f"Acc2 : {acc1 / labeled_bs:.3%} ")
+                        f"Acc2 : {acc2 / labeled_bs:.3%} ")
             if self.writer:
                 self.writer.add_scalar('loss/'+mode + '_global_loss_cla', loss_cla.item(), self.global_step)
                 self.writer.add_scalar('loss/'+mode + '_global_loss_kl', loss_kl, self.global_step)
@@ -147,3 +166,44 @@ class relic_multi_train(relic_train_copy):
         path_model = os.path.join(path, '%s_P%d_epoch%d' % (
             self.network, self.percentage * 100, epoch))
         save_checkpoint(self.model, epoch, self.optimizer, loss, path_model)
+
+
+    def concate_data(self, seq_len=20):
+
+        feature_len = self.train_loader.dataset.data[0].shape[-1]
+        label_list = self.train_loader.dataset.label
+        data_list = self.train_loader.dataset.data
+        data = torch.tensor(())
+        for i in range(len(label_list)):
+            if data_list[i].size()[0] == seq_len:
+                tmp = torch.flatten(data_list[i])
+                print(tmp.size())
+                data = torch.cat((data, tmp)).unsqueeze(0)
+                print(data.size())
+
+            if data_list[i].size()[0] < seq_len:
+                dif = seq_len - data_list[i].size()[0]
+                tmp = torch.cat((data_list[i], torch.zeros((dif, feature_len))))
+                tmp = torch.flatten(tmp).unsqueeze(0)
+                data = torch.cat((data, tmp))
+
+            if data_list[i].size()[0] > seq_len:
+                tmp = data_list[i][:seq_len, :]
+                tmp = torch.flatten(tmp).unsqueeze(0)
+                data = torch.cat((data, tmp))
+        label_list = np.asarray(label_list)
+        self.data_knn = data.numpy()
+        self.label_knn = label_list
+
+    def select_knn(self):
+        toLabel  = []
+        hi_train, label_train, index_train = remove_labeled_cluster(self.data_knn, self.label_knn, list(range(len(self.label_knn))), toLabel)
+        train_id_list, dis_list, dis_list_prob, cluster_label  = iter_kmeans_cluster(hi_train, label_train, index_train , ncluster=420)
+        tmp = SampleFromCluster(train_id_list, dis_list, dis_list_prob, 'top', 0.01)
+        for i in range(len(tmp)):
+            self.semi_label[tmp[i]] = self.train_loader.dataset.label[tmp[i]]
+            self.select_ind[i] = self[tmp[i]]
+
+        self.labeled_num += len(tmp)
+        del self.data_knn
+        del self.label_knn

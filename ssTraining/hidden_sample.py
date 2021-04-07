@@ -27,6 +27,12 @@ def iter_kmeans_cluster(train_set,  train_label,
                          beta=1):
     train_label = np.asarray(train_label)
 
+    if type(train_id) != np.ndarray:
+        train_id = np.asarray(train_id)
+
+    if type(train_label) != np.ndarray:
+        train_label = np.asarray(train_label)
+
     kmeans = KMeans(ncluster, init='k-means++', max_iter=500, random_state=0).fit(train_set)
     pre_train = kmeans.predict(train_set)
 

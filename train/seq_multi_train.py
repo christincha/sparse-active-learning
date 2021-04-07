@@ -186,7 +186,7 @@ class recon_multi_train(ic_train):
         self.label_knn = label_list
 
     def select_knn(self):
-        toLabel  = list(torch.where(self.semi_label!=0)[0].cpu().numpy())
+        toLabel  = []#list(torch.where(self.semi_label!=0)[0].cpu().numpy())
         hi_train, label_train, index_train = remove_labeled_cluster(self.data_knn, self.label_knn, list(range(len(self.label_knn))), toLabel)
         train_id_list, dis_list, dis_list_prob, cluster_label  = iter_kmeans_cluster(hi_train, label_train, index_train , ncluster=2005)
         tmp = SampleFromCluster(train_id_list, dis_list, dis_list_prob, 'top', 0.05)

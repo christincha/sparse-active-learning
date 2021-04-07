@@ -15,7 +15,7 @@ class relic_multi_train(relic_train_copy):
                  model, optimizer, cr_cla, cr_kl, k, writer,
                  network, device, T1, T2, af, labeled_bs, past_acc, percentage, en_num_l, hid_s, few_knn, current_time)
         self.concate_data(20)
-        self.label_knn()
+        self.select_knn()
 
     def select_sample_id(self, input1, input2, seq_len1, seq_len2, unlab_id):
         # mi is minimized
@@ -173,6 +173,7 @@ class relic_multi_train(relic_train_copy):
         feature_len = self.train_loader.dataset.data[0].shape[-1]
         label_list = self.train_loader.dataset.label
         data_list = self.train_loader.dataset.data
+        data_list = [torch.tensor(x) for x in data_list]
         data = torch.tensor(())
         for i in range(len(label_list)):
             if data_list[i].size()[0] == seq_len:
@@ -202,7 +203,7 @@ class relic_multi_train(relic_train_copy):
         tmp = SampleFromCluster(train_id_list, dis_list, dis_list_prob, 'top', 0.01)
         for i in range(len(tmp)):
             self.semi_label[tmp[i]] = self.train_loader.dataset.label[tmp[i]]
-            self.select_ind[i] = self[tmp[i]]
+            self.select_ind[i] = tmp[i]
 
         self.labeled_num += len(tmp)
         del self.data_knn

@@ -4,6 +4,7 @@ seq2seq_model/
 relic_out/
 relic_multi_out/
 reconstruc_out/
+relic_proj_out/
 subseq_out
 test.py
 text.py

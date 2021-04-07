@@ -116,7 +116,7 @@ class relic_project(nn.Module):
         self.heads2 = nn.ModuleList(heads2)
 
         self.fcl1 = FCN(head_out_dim, cla_dim, len(cla_dim))
-        self.fcl2 = FCN(head_out_dim, head_out_dim, len(cla_dim))
+        self.fcl2 = FCN(head_out_dim, [head_out_dim], len(cla_dim))
         self.logsoftmax = nn.LogSoftmax(dim=-1)
         self.softmax = nn.Softmax(dim=-1)
         #self.fix_head()

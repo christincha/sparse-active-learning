@@ -1,5 +1,5 @@
 import os
-from model.relic_model import  relic_project
+from model.relic_model import  relic_three
 from torch.nn import KLDivLoss, NLLLoss
 from train.relicmulti_train import relic_multi_train
 from torch import optim
@@ -16,12 +16,12 @@ torch.cuda.set_device(0)
 
 from main.relic_main import paramerters
 
-class relic_multi_para(paramerters):
+class relic_tri_para(paramerters):
     def __init__(self):
         super().__init__()
         self.num_head = 5
         self.head_dim = 1024
-        self.model = relic_project(self.feature_length, self.hidden_size, self.cla_dim,
+        self.model = relic_three(self.feature_length, self.hidden_size, self.cla_dim,
                  en_num_layers=self.en_num_layers, cl_num_layers=self.cla_num_layers, num_head = self.num_head,
                                      head_out_dim=self.head_dim,dropout=0).to(self.device)
 
@@ -32,14 +32,14 @@ class relic_multi_para(paramerters):
 
 
 if __name__ == '__main__':
-    para = relic_multi_para()
+    para = relic_tri_para()
     for percentage in para.per:
         import socket
         from datetime import datetime
 
         current_time = datetime.now().strftime('%b%d_%H-%M-%S')
         log_dir = os.path.join(
-            'relic_proj_out', current_time + '_' + socket.gethostname()+ 'SSLP%d_en%d_hid%d_orL1.txt' % (
+            'relic_multi_out', current_time + '_' + socket.gethostname()+ 'SSLP%d_en%d_hid%d_orL1.txt' % (
             percentage * 100, para.en_num_layers, para.hidden_size))
         with SummaryWriter(log_dir=log_dir) as writer:
 

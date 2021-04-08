@@ -69,52 +69,7 @@ class MySemiDataset(Dataset):
     def __len__(self):
         return len(self.label)
 
-class ThreestreamSemiDataset(MySemiDataset):
-    def __init__(self, data_path, percentage, fourier=False, timediff = False, add_noise = False):
-        super(ThreestreamSemiDataset, self).__init__(data_path, percentage, fourier, timediff, add_noise)
 
-    def bone_transform(self, filename):
-        self.bone = []
-        bone_connect = [(0, 1), (1, 20), (20, 2), (2, 3), (20, 8), (8, 9), (9, 10), (10, 11), (11, 23), (11, 24),
-                        (20, 4), (4, 5), (5, 6), (6, 7), (7, 21), (7, 22), \
-                        (0, 16), (16, 17), (17, 18), (18, 19), (0, 12), (12, 13), (13, 14), (14, 15)]
-
-        for x in self.data:
-            T = x.shape[0]
-            x = x.reshape((T, 25, 3))
-            bone_x = np.zeros((T, 24,3))
-            for i in range(len(bone_connect)):
-                bone_x[:, i, :] = bone_x[:, bone_connect[i][1], :] - bone_x[:, bone_connect[i][0], :]
-                self.bone.append(bone_x)
-        with open(filename, 'w') as f:
-            json.dump({'bonedata': self.bone}, f)
-
-    def __getitem__(self, index):
-        sequence = self.data[index]
-        steps = sequence.shape[0]
-        if not self.add_noise:
-            if steps > 40:
-                idx1 = np.random.choice(steps, 40)
-                idx1 = np.sort(idx1)
-                sequence1 = sequence[idx1, :]
-                idx2 = np.random.choice(steps, 40)
-                idx2 = np.sort(idx2)
-                sequence2 = sequence[idx2, :]
-                idx3 = np.random.choice(steps, 40)
-                idx3 = np.sort(idx2)
-                sequence3 = sequence[idx3, :]
-
-            else:
-                sequence1, sequence2, sequence3 = sequence, sequence, sequence
-
-        sequence1, sequence2 = self.transform(sequence1, sequence2, sequence3)
-
-        label = self.label[index]
-        semi_label = self.semi_label[index]
-        return sequence1, sequence2, label, semi_label, index
-
-    def transform(self, sequence1, sequence2, sequence3):
-        return sequence1, timediff_single(sequence2)
 
 
 class RotationDataset(MySemiDataset):

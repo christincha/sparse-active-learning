@@ -57,7 +57,7 @@ class relic_multi_train(relic_train_copy):
         labeled_n = 0
         mode = "train" if is_train else "test"
 
-        for it, (in1, in2, len1, len2, label, semi, idx) in enumerate(data_loader):
+        for it, (in1, in2, in3, len1, len2, label, semi, idx) in enumerate(data_loader):
             in1 = in1.to(self.device)
             in2 = in2.to(self.device)
             #change to original label to debug
@@ -65,13 +65,13 @@ class relic_multi_train(relic_train_copy):
             label = torch.tensor(label, dtype=torch.long).to(self.device)
             self.global_step += 1
             # compute output from old model and also current model
-            enhi1, p1, enhi2, p2 = self.model(in1, in2, len1, len2)
+            enhi1, p1, enhi2, p2, _, p3 = self.model(in1, in2, in3, len1, len2)
             ##_,p1_old, _,p2_old = self.model_copy(in1, in2, len1, len2)
 
             if is_train:
                 semi = self.semi_label[idx]
                 indicator = semi.eq(NO_LABEL)
-                labeled_loss = torch.sum(self.cr_cla(p1, semi) + self.cr_cla(p2, semi))
+                labeled_loss = torch.sum(self.cr_cla(p1, semi) + self.cr_cla(p2, semi) + self.cr_cla(p3, semi))
                 labeled_bs = len(indicator) - sum(indicator)
 
                 if self.labeled_num < self.target_num and self.epoch in [3,6, 10,15]:
@@ -80,7 +80,8 @@ class relic_multi_train(relic_train_copy):
                     self.labeled_num +=1
                     self.semi_label[idx[pos]] = label[pos]
                     labeled_class.append(label[pos])
-                    new_loss = torch.sum(self.cr_cla(p1[pos:pos+1],label[pos:pos+1]) + self.cr_cla(p2[pos:pos+1], label[pos:pos+1]))
+                    new_loss = torch.sum(self.cr_cla(p1[pos:pos+1],label[pos:pos+1]) + self.cr_cla(p2[pos:pos+1], label[pos:pos+1]) +
+                                         self.cr_cla(p3[pos:pos+1], label[pos:pos+1]))
                     labeled_n += 1
                     loss_cla = new_loss + labeled_loss
                     new_loss = new_loss.item()

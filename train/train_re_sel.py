@@ -301,6 +301,10 @@ class ic_train:
 
     def initial_sample(self, train_loader,):
         hidden, label, semi, index = test_extract_hidden_iter(self.model, train_loader, alpha=0.5)
+        savedict = {'hidden': hidden.tolist(), 'label': label.tolist(), 'index': index.tolist()}
+        import json
+        with open(os.path.join('/home/ws2/Documents/jingyuan/sparse-active-learning-new/sparse-active-learning/data', 'hidden_state_train'), 'w') as f:
+            json.dump(savedict, f)
         train_id_list, dis_list, dis_list_prob, cluster_label  = iter_kmeans_cluster(hidden,label, index, ncluster=400)
         tmp = SampleFromCluster(train_id_list, dis_list, dis_list_prob, 'top', 0.01)
         for i in range(len(tmp)):

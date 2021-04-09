@@ -85,9 +85,9 @@ def pad_collate_semi_tri(batch):
     aug2_lens = [len(x) for x in aug2_pad]
     return aug1_pad, aug2_pad, aug3_pad, aug1_lens, aug2_lens, label, semi_label, semi_old
 
-def tri_generate_dataloader(train_path, test_path, semi_label, batch_size, label_batch, pos=False):
-    dataset_train =MySemiDataset(train_path, 1)
-    dataset_test = MySemiDataset(test_path, 1)
+def tri_generate_dataloader(train_path, test_path, semi_label, batch_size, label_batch,bone_train=None, bone_test=None, pos=False):
+    dataset_train =ThreestreamSemiDataset(train_path, 1, bone_train)
+    dataset_test = ThreestreamSemiDataset(test_path, 1, bone_test)
     if len(semi_label)==0:
         semi_label = -1*np.ones(len(dataset_train))
     # pos decide where the sample is labled

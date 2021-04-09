@@ -90,9 +90,10 @@ if __name__ == '__main__':
                      para.model, para.optimizer, para.criterion_seq, para.criterion_cla, para.alpha, para.k, writer, para.past_acc,
                      para.root_path, para.network, para.percentage, para.en_num_layers, para.hidden_size, para.label_batch,
                      few_knn=para.few_knn, TrainPS=para.Checkpoint, T1= para.T1, T2 = para.T2, af = para.af, current_time=current_time)
-            trainer.loop(para.epoch,  para.train_loader, para.test_loader,
-                         scheduler=para.model_scheduler, print_freq=para.print_every,
-                         save_freq=para.save_freq)
+            # trainer.loop(para.epoch,  para.train_loader, para.test_loader,
+            #              scheduler=para.model_scheduler, print_freq=para.print_every,
+            #              save_freq=para.save_freq)
+            trainer.initial_sample(para.train_loader)
             #trainer.random_classifier(para.train_loader)
             # trainer.get_class(para.train_loader, 'train')
             # trainer.get_class(para.test_loader, 'test')

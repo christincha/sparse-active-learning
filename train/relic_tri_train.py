@@ -7,7 +7,7 @@ from utility.utilities import *
 from torch import optim
 from data.relic_Dataset import NO_LABEL
 
-class relic_multi_train(relic_train_copy):
+class relic_triple_train(relic_train_copy):
     def __init__(self, epoch, train_loader, eval_loader,
                  model, optimizer, cr_cla, cr_kl, k, writer,
                  network, device, T1, T2, af, labeled_bs, past_acc=0.3, percentage=0.05, en_num_l=3, hid_s=1024, few_knn=True, current_time= None):
@@ -17,23 +17,33 @@ class relic_multi_train(relic_train_copy):
         self.concate_data(20)
         self.select_knn()
 
-    def select_sample_id(self, input1, input2, seq_len1, seq_len2, unlab_id):
+    def select_sample_id(self,  unlab_id, p1, p2, p3):
         # mi is minimized
         # var is maximized
-        pre1, pre2 = self.model.check_output(input1, input2, seq_len1,seq_len2) # num_heads * batch_size * 60
+        #pre1, pre2 = self.model.check_output(input1, input2, seq_len1,seq_len2) # num_heads * batch_size * 60
         #ave_pro = torch.mean(torch.cat((pre1, pre2)), dim=0)
-        pred = torch.argmax(pre1, dim=-1)
-        mod_value = torch.mode(pred.T, keepdim=True, dim=-1)
-        count = torch.sum(pred.T==torch.cat([mod_value.values]*self.model.num_head, dim=-1), dim=-1)
-        pos = torch.logical_and(count>=1, count<=4) #N
-        ave_pro = torch.mean(pre1, dim=0)
-        id_dif = torch.sort(ave_pro)[0]
-        id_dif = id_dif[:, -1] - id_dif[:, -2]  # margin difference
-        vr1 = torch.argsort(id_dif)
-        for i in range(len(vr1)):
-            if unlab_id[vr1[i]] and pos[vr1[i]]:
-            # select samples that has minimum MI but also has discrpancy between 5 output
-                return vr1[i]
+        with torch.no_grad():
+            pro1 = torch.exp(p1)
+            pro2 = torch.exp(p2)
+            pro3 = torch.exp(p3)
+            sort1, cla1 = torch.sort(pro1, dim=-1)
+            sort2, cla2 = torch.sort(pro2, dim=-1)
+            sort3, cla3 = torch.sort(pro3, dim=-1)
+
+            pred = torch.stack((cla1[:,-1], cla2[:,-1], cla3[:,-1]), dim=-1)
+
+
+            mod_value = torch.mode(pred, keepdim=True, dim=-1)
+            count = torch.sum(pred==torch.cat([mod_value.values]*3, dim=-1), dim=-1)
+            pos = torch.logical_and(count>=1, count<=2) #N
+            ave_pro = pro1+pro2+pro3
+            id_dif = torch.sort(ave_pro)[0]
+            id_dif = id_dif[:, -1] - id_dif[:, -2]  # margin difference
+            vr1 = torch.argsort(id_dif)
+            for i in range(len(vr1)):
+                if unlab_id[vr1[i]] and pos[vr1[i]]:
+                # select samples that has minimum MI but also has discrpancy between 5 output
+                    return vr1[i]
     # def select_sample_id(self, input1, input2, seq_len1, seq_len2, unlab_id):
     #     # mi is minimized
     #     # var is maximized
@@ -65,7 +75,8 @@ class relic_multi_train(relic_train_copy):
             label = torch.tensor(label, dtype=torch.long).to(self.device)
             self.global_step += 1
             # compute output from old model and also current model
-            enhi1, p1, enhi2, p2, _, p3 = self.model(in1, in2, in3, len1, len2)
+
+            enhi1, p1, enhi2, p2, _, p3 = self.model(in1, in2, in3, len1, len2, len1)
             ##_,p1_old, _,p2_old = self.model_copy(in1, in2, len1, len2)
 
             if is_train:
@@ -75,7 +86,7 @@ class relic_multi_train(relic_train_copy):
                 labeled_bs = len(indicator) - sum(indicator)
 
                 if self.labeled_num < self.target_num and self.epoch in [3,6, 10,15]:
-                    pos = self.select_sample_id(in1, in2, len1, len2, indicator)
+                    pos = self.select_sample_id(indicator, p1, p2, p3)
                     self.select_ind[self.labeled_num] = idx[pos]
                     self.labeled_num +=1
                     self.semi_label[idx[pos]] = label[pos]
@@ -89,7 +100,9 @@ class relic_multi_train(relic_train_copy):
                     new_loss = 0
                     loss_cla = labeled_loss
 
-                loss_kl = self.cr_kl(p1[indicator], p2[indicator].detach()) / 2 + self.cr_kl(p2[indicator], p1[indicator].detach()) / 2
+                loss_kl = (self.cr_kl(p1[indicator], p2[indicator]) / 2 + self.cr_kl(p2[indicator], p1[indicator]) / 2 +
+                           self.cr_kl(p1[indicator], p3[indicator] ) / 2 + self.cr_kl(p3[indicator], p1[indicator] ) / 2 +
+                           self.cr_kl(p2[indicator], p3[indicator] ) / 2 + self.cr_kl(p3[indicator], p2[indicator] ) / 2 )
                 loss = loss_kl + loss_cla
                 loss_kl = loss_kl.item()
                 self.optimizer.zero_grad()

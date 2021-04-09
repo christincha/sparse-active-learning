@@ -192,7 +192,7 @@ class recon_multi_train(ic_train):
         tmp = SampleFromCluster(train_id_list, dis_list, dis_list_prob, 'top', 0.05)
         for i in range(len(tmp)):
             self.semi_label[tmp[i]] = self.train_loader.dataset.label[tmp[i]]
-            self.select_ind[i] = self[tmp[i]]
+            self.select_ind[i] = tmp[i]
 
         self.labeled_num += len(tmp)
         del self.data_knn

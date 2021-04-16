@@ -6,7 +6,8 @@ import os
 from utility.utilities import *
 from torch import optim
 from data.relic_Dataset import NO_LABEL
-
+import queue
+from ssTraining.kcenter_greedy import kCenterGreedy
 class relic_multi_train(relic_train_copy):
     def __init__(self, epoch, train_loader, eval_loader,
                  model, optimizer, cr_cla, cr_kl, k, writer,
@@ -14,8 +15,11 @@ class relic_multi_train(relic_train_copy):
         super().__init__(epoch, train_loader, eval_loader,
                  model, optimizer, cr_cla, cr_kl, k, writer,
                  network, device, T1, T2, af, labeled_bs, past_acc, percentage, en_num_l, hid_s, few_knn, current_time)
+        self.result = []
+        self.toLabel = []
         self.concate_data(20)
         self.select_knn()
+
 
     def select_sample_id(self, input1, input2, seq_len1, seq_len2, unlab_id):
         # mi is minimized
@@ -74,22 +78,8 @@ class relic_multi_train(relic_train_copy):
                 labeled_loss = torch.sum(self.cr_cla(p1, semi) + self.cr_cla(p2, semi))
                 labeled_bs = len(indicator) - sum(indicator)
 
-                if self.labeled_num < self.target_num and self.epoch in [3,6, 10,15]:
-                    pos = self.select_sample_id(in1, in2, len1, len2, indicator)
-                    self.select_ind[self.labeled_num] = idx[pos]
-                    self.labeled_num +=1
-                    self.semi_label[idx[pos]] = label[pos]
-                    labeled_class.append(label[pos])
-                    new_loss = torch.sum(self.cr_cla(p1[pos:pos+1],label[pos:pos+1]) + self.cr_cla(p2[pos:pos+1], label[pos:pos+1]))
-                    labeled_n += 1
-                    loss_cla = new_loss + labeled_loss
-                    new_loss = new_loss.item()
-                else:
-                    new_loss = 0
-                    loss_cla = labeled_loss
-
                 loss_kl = self.cr_kl(p1[indicator], p2[indicator]) / 2 + self.cr_kl(p2[indicator], p1[indicator]) / 2
-                loss = loss_kl + loss_cla
+                loss = loss_kl + labeled_loss
                 loss_kl = loss_kl.item()
                 self.optimizer.zero_grad()
                 loss.backward()
@@ -106,7 +96,7 @@ class relic_multi_train(relic_train_copy):
 
             labeled_n += labeled_bs
 
-            loop_losscla.append(loss_cla/ len(data_loader))
+            loop_losscla.append(labeled_loss/ len(data_loader))
             loop_losskl.append(loss_kl/ len(data_loader))
             acc1 = semi.eq(p1.max(1)[1]).sum().item()
             acc2 = semi.eq(p2.max(1)[1]).sum().item()
@@ -115,7 +105,7 @@ class relic_multi_train(relic_train_copy):
             if print_freq > 0 and (it % print_freq) == 0:
                 if is_train:
                     print(
-                    f"[{mode}]loss[{it:<3}]\t labeled loss: {labeled_loss.item():.3f}\t new loss: {new_loss:.3f}\t"
+                    f"[{mode}]loss[{it:<3}]\t labeled loss: {labeled_loss.item():.3f}\t  \t"
                     f" loss kl: {loss_kl:.3f}\t  Acc1: {nan_to_num(acc1 / labeled_bs):.3%}\t"
                     f"Acc2 : {nan_to_num(acc2 / labeled_bs):.3%} labeled_num:{self.labeled_num:.1f} ")
                 else:
@@ -124,7 +114,7 @@ class relic_multi_train(relic_train_copy):
                         f" loss kl: {loss_kl:.3f}\t Acc1: {acc1 / labeled_bs:.3%}\t"
                         f"Acc2 : {acc2 / labeled_bs:.3%} ")
             if self.writer:
-                self.writer.add_scalar('loss/'+mode + '_global_loss_cla', loss_cla.item(), self.global_step)
+                self.writer.add_scalar('loss/'+mode + '_global_loss_cla', labeled_loss.item(), self.global_step)
                 self.writer.add_scalar('loss/'+mode + '_global_loss_kl', loss_kl, self.global_step)
                 self.writer.add_scalar('acc/'+mode + '_global_accuracy_p1', acc1 / labeled_bs, self.global_step)
                 self.writer.add_scalar('acc/'+mode + '_global_accuracy_p2', acc2 / labeled_bs, self.global_step)
@@ -139,18 +129,34 @@ class relic_multi_train(relic_train_copy):
             self.writer.add_scalar('global_acc/'+mode + '_epoch_accuracy2', sum(accuracy2) / labeled_n, self.epoch)
             if is_train:
                 if labeled_class:
-                    self.all_label = self.all_label + labeled_class
-                    labeled_class = np.repeat(np.asarray(labeled_class), 6)
                     self.writer.add_histogram('hist/new_labeled', np.asarray(self.all_label), self.epoch, bins='sqrt')
-                    img = np.repeat(labeled_class[np.newaxis, :], 300, axis=0)
-                    H, W = img.shape
-                    img_HWC = np.zeros((H, W, 3))
-                    img_HWC[:, :, 0] = img / 60
-                    img_HWC[:, :, 1] = 1 - img / 60
-                    self.writer.add_image('selectiong process %d' % self.epoch, img_HWC, self.epoch, dataformats='HWC')
-                    if len(self.all_label) == self.target_num and self.save_label:
-                        np.save(os.path.join('relic_multi_out/label', self.current_time), self.select_ind)
-                        self.save_label = False
+
+        if is_train:
+            self.result.append(sum(accuracy1)/labeled_n)
+            if self.epoch >2:
+                self.result.pop(0)
+                if torch.std(torch.tensor(self.result)) < 0.01:
+                    self.select_knn()
+
+    def loop(self, epochs, train_data, test_data, scheduler=None, print_freq=-1, save_freq=1):
+
+        for ep in range(epochs):
+            self.epoch = ep
+            if ep == 0:
+                self.save(ep)
+            print("------ Training epochs: {} ------".format(ep))
+            # if (ep)%50==0:
+            #     self.update_parameter()
+            #     self.re_initialize()
+            self.train(train_data, print_freq)
+
+            if scheduler is not None and self.epoch >0:
+                scheduler.step()
+            print("------ Testing epochs: {} ------".format(ep))
+            self.test(test_data, print_freq)
+
+            if (ep+1) % save_freq == 0:
+                self.save(ep)
 
     def save(self, epoch, loss=0, **kwargs):
         path = './relic_multi_out/model/'
@@ -197,14 +203,23 @@ class relic_multi_train(relic_train_copy):
         self.label_knn = label_list
 
     def select_knn(self):
-        toLabel  = []
-        hi_train, label_train, index_train = remove_labeled_cluster(self.data_knn, self.label_knn, list(range(len(self.label_knn))), toLabel)
-        train_id_list, dis_list, dis_list_prob, cluster_label  = iter_kmeans_cluster(hi_train, label_train, index_train , ncluster=420)
-        tmp = SampleFromCluster(train_id_list, dis_list, dis_list_prob, 'top', 0.01)
-        for i in range(len(tmp)):
-            self.semi_label[tmp[i]] = self.train_loader.dataset.label[tmp[i]]
-            self.select_ind[i] = tmp[i]
+        if self.labeled_num < self.target_num:
+            if self.labeled_num + 409 <= self.target_num:
+                num_thisiter = 409
+            else:
+                num_thisiter = self.target_num - self.labeled_num
+                num_thisiter = num_thisiter.cpu().numpy()
+            hi_train, label_train, index_train = remove_labeled_cluster(self.data_knn, self.label_knn, list(range(len(self.label_knn))), self.toLabel)
+            # train_id_list, dis_list, dis_list_prob, cluster_label  = iter_kmeans_cluster(hi_train, label_train, index_train , ncluster=num_thisiter)
+            # tmp = SampleNumber(train_id_list, dis_list, dis_list_prob, 'top', num_thisiter)
+            cor_set = kCenterGreedy(hi_train, label_train, seed=1)
+            tmp = cor_set.select_batch_(None, self.toLabel, num_thisiter)
+            self.toLabel.append(tmp)
+            for i in range(len(tmp)):
+                self.semi_label[tmp[i]] = self.train_loader.dataset.label[tmp[i]]
+                self.select_ind.append(tmp[i])
+                self.all_label.append(self.train_loader.dataset.data[tmp[i]])
 
-        self.labeled_num += len(tmp)
-        del self.data_knn
-        del self.label_knn
+            self.labeled_num += len(tmp)
+            print('epoch : %d, finish one selection, selected %d sample' % (self.epoch, len(tmp)))
+

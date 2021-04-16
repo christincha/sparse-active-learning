@@ -42,7 +42,7 @@ class relic_train_copy:
         self.semi_label = torch.tensor(train_loader.dataset.semi_label,dtype=torch.long).to(device)
         self.labeled_num = len(self.semi_label) - sum(self.semi_label==NO_LABEL)
         self.target_num = np.int(np.round(len(self.semi_label)*percentage))
-        self.select_ind = np.zeros(self.target_num)
+        self.select_ind = []#np.zeros(self.target_num)
         self.current_time = current_time
         self.all_label = []
         self.save_label = True
@@ -203,7 +203,8 @@ class relic_train_copy:
     def test(self, data_loader, print_freq=10):
         self.model.eval()
         with torch.no_grad():
-            self._iteration(data_loader, print_freq, is_train=False)
+            result = self._iteration(data_loader, print_freq, is_train=False)
+        return result
 
     def update_parameter(self, tao=0.8):
         # mp = list(self.model.parameters())

@@ -131,3 +131,32 @@ def SampleFromCluster(train_id_list, dis_list, dis_list_prob, sample_method, per
                 toLabel = toLabel + index[prob[:num_sample]].tolist()
 
     return toLabel
+
+def SampleNumber(train_id_list, dis_list, dis_list_prob, sample_method, num_sample):
+    # train_id_list position in one original dataset
+    # dis_list: repository for distance of current sample to center
+    # dis_list_pro: probility of the sample belong to one class
+    # sample method: how to select samples
+    # percentage: number of samples we are going to select
+    num_class = len(train_id_list)
+    toLabel = []
+    for i in range(num_class):
+
+        # print(num_sample, len(dis_list[i]))
+        if num_sample >= 1:
+            # num_sample = 1
+
+            if sample_method == 'random':
+                index = np.concatenate(train_id_list)
+                np.random.shuffle(index)
+
+                toLabel = toLabel + index[:num_sample].tolist()
+                return toLabel
+
+            if sample_method == 'top':
+                index = train_id_list[i]
+                distance = np.argsort(dis_list[i])
+                # toLabel = toLabel + index[:num_sample].tolist()
+                toLabel.append(index[distance[0]])
+
+    return toLabel

@@ -17,8 +17,6 @@ class relic_multi_train(relic_train_copy):
                  network, device, T1, T2, af, labeled_bs, past_acc, percentage, en_num_l, hid_s, few_knn, current_time)
         self.result = []
         self.toLabel = []
-        self.concate_data(20)
-        self.select_knn()
 
 
     def select_sample_id(self, input1, input2, seq_len1, seq_len2, unlab_id):
@@ -136,13 +134,15 @@ class relic_multi_train(relic_train_copy):
             if self.epoch >2:
                 self.result.pop(0)
                 if torch.std(torch.tensor(self.result)) < 0.01:
-                    self.select_knn()
+                    self.select_sam_index()
 
     def loop(self, epochs, train_data, test_data, scheduler=None, print_freq=-1, save_freq=1):
 
         for ep in range(epochs):
             self.epoch = ep
             if ep == 0:
+                self.concate_feature(20)
+                self.select_sam_index()
                 self.save(ep)
             print("------ Training epochs: {} ------".format(ep))
             # if (ep)%50==0:
@@ -174,7 +174,7 @@ class relic_multi_train(relic_train_copy):
         save_checkpoint(self.model, epoch, self.optimizer, loss, path_model)
 
 
-    def concate_data(self, seq_len=20):
+    def concate_feature(self, seq_len=20):
 
         feature_len = self.train_loader.dataset.data[0].shape[-1]
         label_list = self.train_loader.dataset.label
@@ -201,20 +201,21 @@ class relic_multi_train(relic_train_copy):
         label_list = np.asarray(label_list)
         self.data_knn = data.numpy()
         self.label_knn = label_list
+        self.cor_set = kCenterGreedy(self.data_knn, self.label_knn, seed=1)
 
-    def select_knn(self):
+    def select_sam_index(self):
         if self.labeled_num < self.target_num:
             if self.labeled_num + 409 <= self.target_num:
                 num_thisiter = 409
             else:
                 num_thisiter = self.target_num - self.labeled_num
                 num_thisiter = num_thisiter.cpu().numpy()
-            hi_train, label_train, index_train = remove_labeled_cluster(self.data_knn, self.label_knn, list(range(len(self.label_knn))), self.toLabel)
+            #hi_train, label_train, index_train = remove_labeled_cluster(self.data_knn, self.label_knn, list(range(len(self.label_knn))), self.toLabel)
             # train_id_list, dis_list, dis_list_prob, cluster_label  = iter_kmeans_cluster(hi_train, label_train, index_train , ncluster=num_thisiter)
             # tmp = SampleNumber(train_id_list, dis_list, dis_list_prob, 'top', num_thisiter)
-            cor_set = kCenterGreedy(hi_train, label_train, seed=1)
-            tmp = cor_set.select_batch_(None, self.toLabel, num_thisiter)
-            self.toLabel.append(tmp)
+            #cor_set = kCenterGreedy(hi_train, label_train, seed=1)
+            tmp = self.cor_set.select_batch_(None, self.toLabel, num_thisiter)
+            self.toLabel = self.toLabel +tmp
             for i in range(len(tmp)):
                 self.semi_label[tmp[i]] = self.train_loader.dataset.label[tmp[i]]
                 self.select_ind.append(tmp[i])

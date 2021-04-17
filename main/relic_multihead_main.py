@@ -1,6 +1,7 @@
 import os
 from model.relic_model import  relic_multihead
 from torch.nn import KLDivLoss, NLLLoss
+from train.relicmulti_train_corset import relic_multi_train_corset
 from train.relicmulti_train import relic_multi_train
 from torch import optim
 from data.relic_Dataset import MySemiDataset, generate_dataloader
@@ -53,7 +54,7 @@ if __name__ == '__main__':
 
         # file_output = open('./output/Rotation_SSLP%d_en%d_hid%d_orL1.txt' % (
         # percentage * 100, en_num_layers, hidden_size), 'w')
-            trainer = relic_multi_train(para.epoch, para.train_loader, para.test_loader,
+            trainer = relic_multi_train_corset(para.epoch, para.train_loader, para.test_loader,
                      para.model, para.optimizer,  para.cr_cla, para.cr_kl, para.k, writer,
                      para.network, para.device, para.T0, para.T1, para.af, para.label_batch ,  para.past_acc, percentage= percentage, current_time=current_time)
 

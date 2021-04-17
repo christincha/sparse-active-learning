@@ -71,6 +71,7 @@ class kCenterGreedy(SamplingMethod):
       if self.min_distances is None:
         self.min_distances = np.min(dist, axis=1).reshape(-1,1)
       else:
+        dist = np.min(dist, axis=1).reshape(-1,1)
         self.min_distances = np.minimum(self.min_distances, dist)
 
   def select_batch_(self, model, already_selected, N, **kwargs):

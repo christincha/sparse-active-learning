@@ -17,7 +17,7 @@ class relic_train_copy:
     def __init__(self, epoch, train_loader, eval_loader,
                  model, optimizer, cr_cla, cr_kl, k, writer,
                  network, device, T1, T2, af, labeled_bs, past_acc=0.3, percentage=0.05, en_num_l=3, hid_s=1024, few_knn=True, current_time= None):
-        self.epoch = epoch
+        self.epochs = epoch
         self.train_loader = train_loader
         self.eval_load = eval_loader
         self.model = model

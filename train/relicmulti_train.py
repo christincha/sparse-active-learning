@@ -210,11 +210,11 @@ class relic_multi_train(relic_train_copy):
             else:
                 num_thisiter = self.target_num - self.labeled_num
                 num_thisiter = num_thisiter.cpu().numpy()
-            #hi_train, label_train, index_train = remove_labeled_cluster(self.data_knn, self.label_knn, list(range(len(self.label_knn))), self.toLabel)
-            # train_id_list, dis_list, dis_list_prob, cluster_label  = iter_kmeans_cluster(hi_train, label_train, index_train , ncluster=num_thisiter)
-            # tmp = SampleNumber(train_id_list, dis_list, dis_list_prob, 'top', num_thisiter)
+            hi_train, label_train, index_train = remove_labeled_cluster(self.data_knn, self.label_knn, list(range(len(self.label_knn))), self.toLabel)
+            train_id_list, dis_list, dis_list_prob, cluster_label  = iter_kmeans_cluster(hi_train, label_train, index_train , ncluster=num_thisiter)
+            tmp = SampleNumber(train_id_list, dis_list, dis_list_prob, 'random', num_thisiter)
             #cor_set = kCenterGreedy(hi_train, label_train, seed=1)
-            tmp = self.cor_set.select_batch_(None, self.toLabel, num_thisiter)
+            #tmp = self.cor_set.select_batch_(None, self.toLabel, num_thisiter)
             self.toLabel = self.toLabel +tmp
             for i in range(len(tmp)):
                 self.semi_label[tmp[i]] = self.train_loader.dataset.label[tmp[i]]

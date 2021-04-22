@@ -1,6 +1,5 @@
 import os
 from model.relic_model import  relic_multihead
-from train.relicmulti_train_consistency import relic_multi_train_mi
 from torch.nn import KLDivLoss, NLLLoss
 from train.relicmulti_train_corset import relic_multi_train_corset
 from train.relicmulti_train import relic_multi_train
@@ -13,6 +12,7 @@ from data.relic_Dataset import TwoStreamBatchSampler
 from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler, BatchSampler
 import torch
 from torch.utils.tensorboard import SummaryWriter
+from train.relicmulti_train_consistency import relic_multi_train_mi
 torch.cuda.set_device(0)
 
 

@@ -156,6 +156,11 @@ class MultiSemiSeq2Seq(nn.Module):
         pred, inter = self.classifier(classifier_in)
         return  pred
 
+    def en_forward(self, input_tensor, seq_len):
+        with torch.no_grad():
+            hi = self.seq.encoder(input_tensor, seq_len)
+        return hi
+
     def check_output(self, input_tensor, seq_len):
         with torch.no_grad():
             encoder_hidden = self.seq.encoder(input_tensor, seq_len)
@@ -167,7 +172,7 @@ class MultiSemiSeq2Seq(nn.Module):
                 pred = torch.softmax(pred, dim=-1)
                 predict.append(pred)
 
-        return torch.stack(predict)
+        return encoder_hidden, torch.stack(predict)
 
     def fix_head(self):
         for child in self.heads.children():

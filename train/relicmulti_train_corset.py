@@ -1,7 +1,7 @@
 from train.relicmulti_train import relic_multi_train
 import torch
 from ssTraining.kcenter_greedy import kCenterGreedy
-
+import numpy as np
 class relic_multi_train_corset(relic_multi_train):
     def __init__(self, epoch, train_loader, eval_loader,
                  model, optimizer, cr_cla, cr_kl, k, writer,
@@ -9,9 +9,12 @@ class relic_multi_train_corset(relic_multi_train):
         super().__init__(epoch, train_loader, eval_loader,
                  model, optimizer, cr_cla, cr_kl, k, writer,
                  network, device, T1, T2, af, labeled_bs, past_acc, percentage, en_num_l, hid_s, few_knn, current_time)
-
+        self.save_path = './relic_multi_out/model/coreset'
+        self.sel_count = 9
         self.features = torch.zeros(len(self.train_loader.dataset.label), 60).to(self.device)
-
+        self.toLabel = np.load('/home/ws2/Documents/jingyuan/sparse-active-learning-new/sparse_active_learning_EPOCH/sparse-active-learning/main/relic_multi_out/model/coreset/ssl_drop_ps_P10_epoch196.npy')
+        print('running coreset')
+        self.load_old_label()
 
     def concate_feature(self, seq_len =20):
         for it, (in1, in2, len1, len2, label, semi, idx) in enumerate(self.train_loader):
@@ -27,12 +30,17 @@ class relic_multi_train_corset(relic_multi_train):
             self.cor_set = kCenterGreedy(self.features.cpu().numpy(), self.train_loader.dataset.label, seed=1)
         else:
             self.cor_set.features = self.features.cpu().numpy()
-        if self.labeled_num < self.target_num:
-            if self.labeled_num + 409 <= self.target_num:
-                num_thisiter = 409
-            else:
-                num_thisiter = self.target_num - self.labeled_num
-                num_thisiter = num_thisiter.cpu().numpy()
+        # if self.labeled_num < self.target_num:
+        #     if self.labeled_num + 41 <= self.target_num:
+        #         num_thisiter = 60
+        #     else:
+        #         num_thisiter = self.target_num - self.labeled_num
+        #         num_thisiter = num_thisiter.cpu().numpy()
+        self.save(self.epoch, path=self.save_path)
+        if self.sel_count < len(self.sel_num):
+
+            num_thisiter = self.sel_num[self.sel_count]
+            self.sel_count += 1
             #hi_train, label_train, index_train = remove_labeled_cluster(self.data_knn, self.label_knn, list(range(len(self.label_knn))), self.toLabel)
             # train_id_list, dis_list, dis_list_prob, cluster_label  = iter_kmeans_cluster(hi_train, label_train, index_train , ncluster=num_thisiter)
             # tmp = SampleNumber(train_id_list, dis_list, dis_list_prob, 'top', num_thisiter)
@@ -48,10 +56,11 @@ class relic_multi_train_corset(relic_multi_train):
             print('epoch : %d, finish one selection, selected %d sample' % (self.epoch, len(tmp)))
 
 
-    def loop(self, epochs, train_data, test_data, scheduler=None, print_freq=-1, save_freq=1):
+    def loop(self, epochs, train_data, test_data, scheduler=None, print_freq=-1, save_freq=1, save_dir = None):
 
-        for ep in range(epochs):
+        for ep in range(196, epochs):
             self.epoch = ep
+            self.per_lab[ep, 1] = self.labeled_num
             if ep == 0:
                 self.select_sam_index()
                 self.save(ep)
@@ -64,7 +73,6 @@ class relic_multi_train_corset(relic_multi_train):
             if scheduler is not None and self.epoch >0:
                 scheduler.step()
             print("------ Testing epochs: {} ------".format(ep))
-            self.test(test_data, print_freq)
-
-            if (ep+1) % save_freq == 0:
-                self.save(ep)
+            re = self.test(test_data, print_freq)
+            self.per_lab[ep, 0 ] = re
+            np.save(save_dir, self.per_lab)

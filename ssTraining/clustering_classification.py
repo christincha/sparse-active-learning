@@ -18,7 +18,14 @@ def remove_labeled_cluster(train_set, train_label, train_id, labeled):
         train_id = np.delete(train_id, del_id, axis=0)
     return train_set, train_label, train_id
 
-
+def remove_labeled_cluster_inorder(train_set, train_label, train_id, labeled):
+    if type(train_label) != np.ndarray:
+        train_label = np.asarray(train_label)
+    if len(labeled) != 0:
+        train_set = np.delete(train_set, labeled, axis=0)
+        train_label = np.delete(train_label, labeled, axis=0)
+        train_id = np.delete(train_id, labeled, axis=0)
+    return train_set, train_label, train_id
 # def iter_kmeans_cluster(train_set, test_set, train_label,
 #                         test_label, train_id, pred_id, ncluster=7,
 #                         beta=1):

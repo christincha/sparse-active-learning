@@ -1,18 +1,10 @@
-# This is a sample Python script.
-
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
-from __future__ import unicode_literals, print_function, division
-# load file
-from train.seq_multi_epoch_consistency import recon_multiCon_train
-from train.seq_multi_train import recon_multi_train
-import torch
+from main.multi_head_main import *
 from ssTraining.SeqModel import MultiSemiSeq2Seq, seq2seq
 from  data.data_loader import *
 from data.data_loader import NO_LABEL
 from torch.utils.tensorboard import SummaryWriter
 from utility.para_class import paramerters
-torch.cuda.set_device(1)
+torch.cuda.set_device(0)
 
 ## training procedure
 class para_re_sel(paramerters):
@@ -43,8 +35,8 @@ class para_re_sel(paramerters):
         self.de_num_layers = 1
         self.middle_size = 125
         self.cla_num_layers = 1
-        self.learning_rate = 0.0001
-        self.epoch = 400
+        self.learning_rate = 1e-8
+        self.epoch = 2000
         self.cla_dim = [60]
         self.threshold = 0.8
         self.k = 2 # top k accuracy
@@ -52,11 +44,12 @@ class para_re_sel(paramerters):
         self.Checkpoint= False
         self.pre_train = True
         self.old_modelName = '/home/ws2/Documents/jingyuan/Self-Training/seq2seq_model/selected_FSfewPCA0.0000_P100_layer3_hid1024_epoch30'#'./seq2seq_model/' + 'test_seq2seq0_P5_epoch100' #'selected_FSfewPCA0.0000_P100_layer3_hid1024_epoch30'
+        self.oldlabel = []
         self.dataloader = MySemiDataset
         self.semi_label = []#-1*np.ones(len(np.load('/home/ws2/Documents/jingyuan/Self-Training/labels/base_semiLabel.npy')))
         self.label_batch = 0
         self.print_every = 100
-        self.save_freq=10
+        self.save_freq=20
         self.T1 = 0
         self.T2 = 1000
         self.af = 0.0001
@@ -99,16 +92,18 @@ def run(type):
             para.scheduler()
 
             res_dir = os.path.join(log_dir, 'model')
+            if not os.path.exists(res_dir):
+                os.mkdir(res_dir)
             print(' percentage %.2f' % (para.percentage))
             # training(epoch, train_loader, eval_loader,
             #          model, optimizer,  criterion_cla, k, file_output, network='SSLbaseline', percentage=0.05, en_num_l=en_num_layers, hid_s=hidden_size)
             trainer = recon_multiCon_train(para.epoch, para.train_loader, para.test_loader, para.print_every,
                      para.model, para.optimizer, para.criterion_seq, para.criterion_cla, para.alpha, para.k, writer, para.past_acc,
                      para.root_path, para.network, para.percentage, para.en_num_layers, para.hidden_size, para.label_batch,
-                     few_knn=para.few_knn, TrainPS=para.Checkpoint, T1= para.T1, T2 = para.T2, af = para.af, current_time=current_time)
+                     few_knn=para.few_knn, TrainPS=para.Checkpoint, T1= para.T1, T2 = para.T2, af = para.af, current_time=current_time,toLabel=para.oldlabel)
             trainer.loop(para.epoch,  para.train_loader, para.test_loader,
                          scheduler=para.model_scheduler, print_freq=para.print_every,
-                         save_freq=para.save_freq, save_dir=res_dir,type=type)
+                         save_freq=para.save_freq, save_dir=res_dir,type=type, start_epoch=0)
             # trainer.random_classifier(para.train_loader)
             # trainer.get_class(para.train_loader, 'train')
             # trainer.get_class(para.test_loader, 'test')
@@ -132,5 +127,5 @@ def run(type):
     #
 
 if __name__ == '__main__':
-    print('mi selection multihead main')
-    run('mi')
+    print('multi head uniform selection')
+    run('mi_prob')

@@ -46,6 +46,7 @@ class relic_train_copy:
         self.current_time = current_time
         self.all_label = []
         self.save_label = True
+        self.per_lab = np.zeros((epoch,2))
 
     def correct_label(self, unlab_id, p1, p2,th=0.5):
         prob1 = torch.exp(p1)
@@ -229,7 +230,9 @@ class relic_train_copy:
             if scheduler is not None and self.epoch >0:
                 scheduler.step()
             print("------ Testing epochs: {} ------".format(ep))
-            self.test(test_data, print_freq)
+            re= self.test(test_data, print_freq)
+            self.per_lab[ep,0] = re
+            self.per_lab[ep, 1]= self.labeled_num
             if (ep+1) % save_freq == 0:
                 self.save(ep)
 

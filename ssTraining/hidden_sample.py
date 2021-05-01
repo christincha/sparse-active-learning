@@ -59,11 +59,32 @@ def iter_kmeans_cluster(train_set,  train_label,
         train_id_list.append(train_id[clas_poss])
         dis_list.append(DisToCenter[clas_poss])
         dis_list_prob.append(DisToCenter_prob[clas_poss])
-
         # list_pre_test.append(Counter(corresponding_test_pre))
-
     return train_id_list, dis_list, DisToCenter_prob, cluster_label
 
+def iter_kmeans_cluster_feature(train_set,  feature,
+                         train_id,  ncluster=10,
+                         beta=1):
+    if type(train_id) != np.ndarray:
+        train_id = np.asarray(train_id)
+    kmeans = KMeans(ncluster, init='k-means++', max_iter=500, random_state=0).fit(train_set)
+    pre_train = kmeans.predict(train_set)
+
+    distance = kmeans.transform(train_set)
+
+    DisToCenter = distance[range(len(pre_train)), pre_train]
+
+
+    train_id_list = []
+    dis_list = []
+    feat_list = []
+    # concate dis fea id into seperated list
+    for i in range(ncluster):
+        clas_poss = pre_train == i
+        train_id_list.append(train_id[clas_poss])
+        dis_list.append(DisToCenter[clas_poss])
+        feat_list.append(feature[clas_poss])
+    return train_id_list, dis_list, feat_list
 
 def SampleFromCluster(train_id_list, dis_list, dis_list_prob, sample_method, percentage):
     # train_id_list position in one original dataset
@@ -158,5 +179,19 @@ def SampleNumber(train_id_list, dis_list, dis_list_prob, sample_method, num_samp
                 distance = np.argsort(dis_list[i])
                 # toLabel = toLabel + index[:num_sample].tolist()
                 toLabel.append(index[distance[0]])
+
+            if sample_method == 'mi':
+                index = train_id_list[i]
+                distance = np.argsort(dis_list_prob[i])
+                # toLabel = toLabel + index[:num_sample].tolist()
+                toLabel.append(index[distance[0]])
+
+            if sample_method == 'mi_prob':
+                index = np.asarray(train_id_list[i])
+                prob = 1 - dis_list_prob[i]
+                prob = prob/np.sum(prob)
+                sid = np.random.choice(index, p=prob)
+                toLabel.append(sid)
+
 
     return toLabel

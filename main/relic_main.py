@@ -48,7 +48,7 @@ class paramerters():
         #           layout = 'ntu-rgb+d',strategy= 'distance',edge_weighting=True).to(self.device)
         self.print_every = 100
         self.past_acc = 0.4
-        self.per = [0.05]
+        self.per = [0.1]
         self.T0 = 0
         self.T1 = 20
         self.af = 0.5

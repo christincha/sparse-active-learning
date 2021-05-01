@@ -17,6 +17,8 @@ class relic_multi_train(relic_train_copy):
                  network, device, T1, T2, af, labeled_bs, past_acc, percentage, en_num_l, hid_s, few_knn, current_time)
         self.result = []
         self.toLabel = []
+        self.sel_count = 0
+        self.sel_num = [89,80,80,80, 80 ]*10
 
 
     def select_sample_id(self, input1, input2, seq_len1, seq_len2, unlab_id):
@@ -136,9 +138,11 @@ class relic_multi_train(relic_train_copy):
                 if torch.std(torch.tensor(self.result)) < 0.01:
                     self.select_sam_index()
 
-    def loop(self, epochs, train_data, test_data, scheduler=None, print_freq=-1, save_freq=1):
+    def loop(self, epochs, train_data, test_data, scheduler=None, print_freq=-1, save_freq=1, save_idr = None):
 
         for ep in range(epochs):
+
+            self.per_lab[ep, 1] = self.labeled_num
             self.epoch = ep
             if ep == 0:
                 self.concate_feature(20)
@@ -153,25 +157,28 @@ class relic_multi_train(relic_train_copy):
             if scheduler is not None and self.epoch >0:
                 scheduler.step()
             print("------ Testing epochs: {} ------".format(ep))
-            self.test(test_data, print_freq)
-
+            re = self.test(test_data, print_freq)
+            self.per_lab[ep, 0] = re
+            np.save(save_idr, self.per_lab)
             if (ep+1) % save_freq == 0:
                 self.save(ep)
 
-    def save(self, epoch, loss=0, **kwargs):
-        path = './relic_multi_out/model/'
+    def save(self, epoch, loss=0, path=None, path_model=None, **kwargs):
+        if not path:
+            path = './relic_multi_out/model/'
         if not os.path.exists(path):
             os.mkdir(path)
-        for item in os.listdir(path):
-            if item.startswith('%s_P%d' % (
-                    self.network, self.percentage * 100)):
-                open(path + item,
-                     'w').close()  # overwrite and make the file blank instead - ref: https://stackoverflow.com/a/4914288/3553367
-                os.remove(path + item)
-
-        path_model = os.path.join(path, '%s_P%d_epoch%d' % (
-            self.network, self.percentage * 100, epoch))
+        # for item in os.listdir(path):
+        #     if item.startswith('%s_P%d' % (
+        #             self.network, self.percentage * 100)):
+        #         open(path + item,
+        #              'w').close()  # overwrite and make the file blank instead - ref: https://stackoverflow.com/a/4914288/3553367
+        #         os.remove(path + item)
+        if not path_model:
+            path_model = os.path.join(path, '%s_P%d_epoch%d' % (
+                self.network, self.percentage * 100, epoch))
         save_checkpoint(self.model, epoch, self.optimizer, loss, path_model)
+        np.save(path_model, self.toLabel )
 
 
     def concate_feature(self, seq_len=20):
@@ -224,3 +231,11 @@ class relic_multi_train(relic_train_copy):
             self.labeled_num += len(tmp)
             print('epoch : %d, finish one selection, selected %d sample' % (self.epoch, len(tmp)))
 
+
+    def load_old_label(self):
+        for i in range(len(self.toLabel)):
+            self.semi_label[self.toLabel[i]] = self.train_loader.dataset.label[self.toLabel[i]]
+            self.select_ind.append(self.toLabel[i])
+            self.all_label.append(self.train_loader.dataset.data[self.toLabel[i]])
+
+        self.labeled_num += len(self.toLabel)

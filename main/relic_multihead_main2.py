@@ -1,6 +1,8 @@
 import os
 from model.relic_model import  relic_multihead
 from torch.nn import KLDivLoss, NLLLoss
+from utility.utilities import load_model
+import numpy as np
 from train.relicmulti_train_corset import relic_multi_train_corset
 from train.relicmulti_train import relic_multi_train
 from torch import optim
@@ -12,8 +14,7 @@ from data.relic_Dataset import TwoStreamBatchSampler
 from torch.utils.data import Dataset, DataLoader, SubsetRandomSampler, BatchSampler
 import torch
 from torch.utils.tensorboard import SummaryWriter
-from train.relicmulti_train_consistency import relic_multi_train_mi
-torch.cuda.set_device(0)
+torch.cuda.set_device(1)
 
 
 from main.relic_main import paramerters
@@ -27,11 +28,19 @@ class relic_multi_para(paramerters):
                  en_num_layers=self.en_num_layers, cl_num_layers=self.cla_num_layers, num_head = self.num_head,
                                      head_out_dim=self.head_dim,dropout=0).to(self.device)
 
-        self.model_ind = False  # notion to load model
+        self.model_ind = True  # notion to load model
+        self.train_ps = False
+        self.save_freq = 20
+        self.epoch = 20000
+        self.model_ind = True  # notion to load model
         self.train_ps = False
         self.save_freq = 20
 
-
+    def load_model(self, model, model_name=None):
+        model_name = './relic_multi_out/model/coreset/ssl_drop_ps_P10_epoch196'#ssl_drop_P5_epoch60'
+        model, _ = load_model(model_name, model, self.optimizer, self.device)
+        self.model = model
+        self.get_optimizer()
 
 if __name__ == '__main__':
     para = relic_multi_para()
@@ -55,10 +64,11 @@ if __name__ == '__main__':
 
         # file_output = open('./output/Rotation_SSLP%d_en%d_hid%d_orL1.txt' % (
         # percentage * 100, en_num_layers, hidden_size), 'w')
-            trainer = relic_multi_train_mi(para.epoch, para.train_loader, para.test_loader,
+            print('core set method')
+            trainer = relic_multi_train_corset(para.epoch, para.train_loader, para.test_loader,
                      para.model, para.optimizer,  para.cr_cla, para.cr_kl, para.k, writer,
                      para.network, para.device, para.T0, para.T1, para.af, para.label_batch ,  para.past_acc, percentage= percentage, current_time=current_time)
-
+            res_dir = os.path.join(log_dir, 'result')
             trainer.loop(para.epoch, para.train_loader, para.test_loader,
-                         scheduler=para.model_scheduler, print_freq=para.print_every, save_freq=para.save_freq)
+                         scheduler=para.model_scheduler, print_freq=para.print_every, save_freq=para.save_freq, save_dir=res_dir)
             print(' percentage %.2f' % (percentage))

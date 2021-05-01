@@ -2,8 +2,7 @@ import os
 from model.relic_model import  relic_multihead
 from train.relicmulti_train_consistency import relic_multi_train_mi
 from torch.nn import KLDivLoss, NLLLoss
-from train.relicmulti_train_corset import relic_multi_train_corset
-from train.relicmulti_train import relic_multi_train
+from utility.utilities import *
 from torch import optim
 from data.relic_Dataset import MySemiDataset, generate_dataloader
 #from siamesa.augmentation import MySemiDataset, pad_collate_semi
@@ -23,13 +22,20 @@ class relic_multi_para(paramerters):
         super().__init__()
         self.num_head = 5
         self.head_dim = 1024
+        self.epoch = 20000
         self.model = relic_multihead(self.feature_length, self.hidden_size, self.cla_dim,
                  en_num_layers=self.en_num_layers, cl_num_layers=self.cla_num_layers, num_head = self.num_head,
                                      head_out_dim=self.head_dim,dropout=0).to(self.device)
 
-        self.model_ind = False  # notion to load model
+        self.model_ind = True  # notion to load model
         self.train_ps = False
         self.save_freq = 20
+
+    def load_model(self, model, model_name=None):
+        model_name = './relic_multi_out/model/consistency/ssl_drop_ps_P10_epoch232'#ssl_drop_P5_epoch60'
+        model, _ = load_model(model_name, model, self.optimizer, self.device)
+        self.model = model
+        self.get_optimizer()
 
 
 
@@ -58,7 +64,9 @@ if __name__ == '__main__':
             trainer = relic_multi_train_mi(para.epoch, para.train_loader, para.test_loader,
                      para.model, para.optimizer,  para.cr_cla, para.cr_kl, para.k, writer,
                      para.network, para.device, para.T0, para.T1, para.af, para.label_batch ,  para.past_acc, percentage= percentage, current_time=current_time)
-
+            res_dir = os.path.join(log_dir, 'result')
+            if not os.path.exists(res_dir):
+                os.mkdir(res_dir)
             trainer.loop(para.epoch, para.train_loader, para.test_loader,
-                         scheduler=para.model_scheduler, print_freq=para.print_every, save_freq=para.save_freq)
+                         scheduler=para.model_scheduler, print_freq=para.print_every, save_freq=para.save_freq, save_dir = res_dir)
             print(' percentage %.2f' % (percentage))

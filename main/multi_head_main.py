@@ -53,6 +53,7 @@ class para_re_sel(paramerters):
         self.pre_train = True
         self.old_modelName = '/home/ws2/Documents/jingyuan/Self-Training/seq2seq_model/selected_FSfewPCA0.0000_P100_layer3_hid1024_epoch30'#'./seq2seq_model/' + 'test_seq2seq0_P5_epoch100' #'selected_FSfewPCA0.0000_P100_layer3_hid1024_epoch30'
         self.dataloader = MySemiDataset
+        self.old_label = '/home/ws2/Documents/jingyuan/sparse-active-learning-new/sparse_active_learning_EPOCH/sparse-active-learning/main/reconstruc_out/May04_18-15-47_ws2-System-Product-NameIC5_en3_hid1024_orL1.txt/model/resel_P5_epoch0.npy'
         self.semi_label = []#-1*np.ones(len(np.load('/home/ws2/Documents/jingyuan/Self-Training/labels/base_semiLabel.npy')))
         self.label_batch = 0
         self.print_every = 100
@@ -105,7 +106,7 @@ def run(type):
             trainer = recon_multiCon_train(para.epoch, para.train_loader, para.test_loader, para.print_every,
                      para.model, para.optimizer, para.criterion_seq, para.criterion_cla, para.alpha, para.k, writer, para.past_acc,
                      para.root_path, para.network, para.percentage, para.en_num_layers, para.hidden_size, para.label_batch,
-                     few_knn=para.few_knn, TrainPS=para.Checkpoint, T1= para.T1, T2 = para.T2, af = para.af, current_time=current_time)
+                     few_knn=para.few_knn, TrainPS=para.Checkpoint, T1= para.T1, T2 = para.T2, af = para.af, current_time=current_time, toLabel=para.old_label)
             trainer.loop(para.epoch,  para.train_loader, para.test_loader,
                          scheduler=para.model_scheduler, print_freq=para.print_every,
                          save_freq=para.save_freq, save_dir=res_dir,type=type)
@@ -132,5 +133,5 @@ def run(type):
     #
 
 if __name__ == '__main__':
-    print('mi selection multihead main')
-    run('mi')
+    print('mi prob 5 head with mi one head initialization ')
+    run('mi_prob')

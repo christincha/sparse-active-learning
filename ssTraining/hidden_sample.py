@@ -189,8 +189,12 @@ def SampleNumber(train_id_list, dis_list, dis_list_prob, sample_method, num_samp
             if sample_method == 'mi_prob':
                 index = np.asarray(train_id_list[i])
                 prob = 1 - dis_list_prob[i]
-                prob = prob/np.sum(prob)
-                sid = np.random.choice(index, p=prob)
+                prob = np.exp(prob/0.1)/(np.sum(np.exp(prob/0.1)))
+                if sum(np.isnan(prob))!=0:
+                    print(prob)
+                    sid = np.random.choice(index)
+                else:
+                    sid = np.random.choice(index, p=prob)
                 toLabel.append(sid)
 
 

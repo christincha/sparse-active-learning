@@ -52,7 +52,7 @@ def load_model(model_path, model, optimizer, device):
     model_dict = torch.load(model_path, map_location=device)
     model.load_state_dict(model_dict['model_state_dict'])
     if optimizer:
-        optimizer.load_state_dict(model_dict['optimizer_state_dict'])
+       # optimizer.load_state_dict(model_dict['optimizer_state_dict'])
         model.train()
 
     else:

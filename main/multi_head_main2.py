@@ -1,5 +1,5 @@
 from main.multi_head_main import *
-from ssTraining.SeqModel import MultiSemiSeq2Seq, seq2seq
+from ssTraining.SeqModel import MultiSemiSeq2Seq, seq2seq, SemiSeq2Seq
 from  data.data_loader import *
 from data.data_loader import NO_LABEL
 from torch.utils.tensorboard import SummaryWriter
@@ -35,16 +35,16 @@ class para_re_sel(paramerters):
         self.de_num_layers = 1
         self.middle_size = 125
         self.cla_num_layers = 1
-        self.learning_rate = 1e-8
-        self.epoch = 2000
+        self.learning_rate = 0.0001
+        self.epoch = 200
         self.cla_dim = [60]
         self.threshold = 0.8
         self.k = 2 # top k accuracy
         # for classificatio
         self.Checkpoint= False
         self.pre_train = True
-        self.old_modelName = '/home/ws2/Documents/jingyuan/Self-Training/seq2seq_model/selected_FSfewPCA0.0000_P100_layer3_hid1024_epoch30'#'./seq2seq_model/' + 'test_seq2seq0_P5_epoch100' #'selected_FSfewPCA0.0000_P100_layer3_hid1024_epoch30'
-        self.oldlabel = []
+        self.old_modelName = '/home/ws2/Documents/jingyuan/Self-Training/seq2seq_model/selected_FSfewPCA0.0000_P100_layer3_hid1024_epoch30'#' ='/home/ws2/Documents/jingyuan/sparse-active-learning-new/sparse_active_learning_EPOCH/sparse-active-learning/main/reconstruc_out/May04_18-15-47_ws2-System-Product-NameIC5_en3_hid1024_orL1.txt/model/resel_P5_epoch0' #./seq2seq_model/' + 'test_seq2seq0_P5_epoch100' #'selected_FSfewPCA0.0000_P100_layer3_hid1024_epoch30'
+        self.oldlabel = '/home/ws2/Documents/jingyuan/sparse-active-learning-new/sparse_active_learning_EPOCH/sparse-active-learning/main/reconstruc_out/May04_18-15-47_ws2-System-Product-NameIC5_en3_hid1024_orL1.txt/model/resel_P5_epoch0.npy'
         self.dataloader = MySemiDataset
         self.semi_label = []#-1*np.ones(len(np.load('/home/ws2/Documents/jingyuan/Self-Training/labels/base_semiLabel.npy')))
         self.label_batch = 0
@@ -56,13 +56,16 @@ class para_re_sel(paramerters):
 
         self.past_acc = 4
         # parameters for head
-        self.num_head = 5
+        self.num_head = 1
         self.head_out_dim = 1024
 
     def get_model(self):
-        self.model = MultiSemiSeq2Seq(self.feature_length, self.hidden_size, self.feature_length, self.batch_size,
-                                    self.cla_dim, self.en_num_layers, self.de_num_layers, self.cla_num_layers, self.num_head, self.head_out_dim, self.fix_state, self.fix_weight,
+        self.model = SemiSeq2Seq(self.feature_length, self.hidden_size, self.feature_length, self.batch_size,
+                                    self.cla_dim, self.en_num_layers, self.de_num_layers, self.cla_num_layers, self.fix_state, self.fix_weight,
                                     self.teacher_force)
+        # self.model = MultiSemiSeq2Seq(self.feature_length, self.hidden_size, self.feature_length, self.batch_size,
+        #                             self.cla_dim, self.en_num_layers, self.de_num_layers, self.cla_num_layers, self.num_head, self.head_out_dim, self.fix_state, self.fix_weight,
+        #                             self.teacher_force)
 
         if self.pre_train and not self.Checkpoint:
             self.old_model = seq2seq(self.feature_length, self.hidden_size, self.feature_length, self.batch_size,
@@ -127,5 +130,5 @@ def run(type):
     #
 
 if __name__ == '__main__':
-    print('multi head uniform selection')
-    run('mi_prob')
+    print('add trainable one head')
+    run('mi')

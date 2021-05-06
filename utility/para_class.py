@@ -86,8 +86,9 @@ class paramerters:
             self.model.seq = model
             self.get_optimizer()
         if self.Checkpoint:
-            optimizer_tmp =  optim.Adam(filter(lambda p: p.requires_grad, self.model.parameters()), lr=self.learning_rate)
-            self.model, self.optimizer = load_model(self.old_modelName, self.model, optimizer_tmp, self.device)
+            optimizer_tmp =  optim.Adam(self.model.parameters(), lr=self.learning_rate)
+            self.model, _ = load_model(self.old_modelName, self.model, optimizer_tmp, self.device)
+            self.get_optimizer()
 
 
     def data_loader(self):

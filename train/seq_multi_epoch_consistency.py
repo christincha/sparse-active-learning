@@ -3,6 +3,7 @@ from ssTraining.hidden_sample import *
 from ssTraining.clustering_classification import remove_labeled_cluster_inorder
 from  ssTraining.extract_hidden import test_extract_hidden_iter
 from utility.utilities import *
+from ssTraining.kcenter_greedy import kCenterGreedy
 from torch import optim
 import torch.nn.functional as F
 from  data.data_loader import *
@@ -29,8 +30,8 @@ class recon_multiCon_train(ic_train):
             self.sel_count = 0
         else:
             self.toLabel = np.load(toLabel).tolist()
-            self.sel_num = [81, 80, 80, 80, 80]*10
-            self.sel_count = 32
+            self.sel_num = [401]*5
+            self.sel_count = 1
             self.load_old_label()
 
         self.per_lab = np.zeros((epoch,2))
@@ -40,13 +41,15 @@ class recon_multiCon_train(ic_train):
 
         pred = torch.argmax(pred_pro, dim=-1)
         mod_value = torch.mode(pred.T, keepdim=True, dim=-1)
-        count = torch.sum(pred.T==torch.cat([mod_value.values]*self.model.num_head, dim=-1), dim=-1)
-        pos = torch.logical_or(count<2, count>4) #N
+#        count = torch.sum(pred.T==torch.cat([mod_value.values]*self.model.num_head, dim=-1), dim=-1)
+        #pos = torch.logical_or(count<2, count>4) #N
 
-        pred_pro = torch.mean(pred_pro, dim=0)
+        #pred_pro = torch.mean(pred_pro, dim=0)
         id_dif  = torch.sort(pred_pro, dim=-1)[0]
-        id_dif = id_dif[:,-1] - id_dif[:,-2] # margin difference
-        id_dif[pos] = 1
+        id_dif = id_dif[:,:,-1] - id_dif[:,:,-2] # margin difference
+        id_dif = torch.sum(id_dif, dim=0)
+        # if self.type != 'mi_prob':
+        #     id_dif[pos] = 1
         return id_dif
 
     def _iteration(self, data_loader, print_freq, is_train=True):
@@ -238,8 +241,19 @@ class recon_multiCon_train(ic_train):
                 else:
                     tmp = SampleNumber(train_id_list, dis_list, feat_list, 'mi', num_thisiter)
 
+            if self.type =='mi_nocluster':
+                self.concate_feature()
+                hi_train, fea, index_train = remove_labeled_cluster_inorder(self.hidd, self.features,
+                                                                            list(range(len(self.label_hi))),
+                                                                            self.toLabel)
+                pos = np.argsort(fea)
+                index_train = np.asarray(index_train)
+                tmp = index_train[pos[:num_thisiter]].tolist()
+
             if self.type == 'mi_prob':
                 tmp = self.prob_mi(num_thisiter)
+            if self.type == 'core_set':
+                tmp = self.core_set(num_thisiter)
 
             self.toLabel = tmp + self.toLabel
             for i in range(len(tmp)):
@@ -266,7 +280,17 @@ class recon_multiCon_train(ic_train):
         train_id_list, dis_list, feat_list = iter_kmeans_cluster_feature(hi_train, fea, index_train,
                                                                          ncluster=num_thisiter)
         if self.sel_count == 0:
-            tmp = SampleNumber(train_id_list, dis_list, feat_list, 'mi_prob', num_thisiter)
+            tmp = SampleNumber(train_id_list, dis_list, feat_list, 'top', num_thisiter)
         else:
             tmp = SampleNumber(train_id_list, dis_list, feat_list, 'mi_prob', num_thisiter)
+        return tmp
+
+    def core_set(self, num_thisiter):
+        self.concate_feature()
+        if self.epoch == 0:
+            self.cor_set = kCenterGreedy(self.hidd, self.train_loader.dataset.label, seed=1)
+        else:
+            self.cor_set.features = self.hidd
+
+        tmp = self.cor_set.select_batch_(None, self.toLabel, num_thisiter)
         return tmp

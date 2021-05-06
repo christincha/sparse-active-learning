@@ -98,7 +98,7 @@ class kCenterGreedy(SamplingMethod):
       self.update_distances(already_selected, only_new=False, reset_dist=True)
     except:
       print('Using flat_X as features.')
-      self.update_distances(already_selected, only_new=True, reset_dist=False)
+      self.update_distances(already_selected, only_new=False, reset_dist=True)
 
     new_batch = []
 

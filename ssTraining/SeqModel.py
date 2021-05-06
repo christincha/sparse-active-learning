@@ -113,6 +113,21 @@ class SemiSeq2Seq(nn.Module):
         pred, inter = self.classifier(encoder_hidden[0,:,:])
         return  pred
 
+    def en_forward(self, input_tensor, seq_len):
+        with torch.no_grad():
+            hi = self.seq.encoder(input_tensor, seq_len)
+        return hi
+
+    def check_output(self, input_tensor, seq_len):
+        with torch.no_grad():
+            encoder_hidden = self.seq.encoder(input_tensor, seq_len)
+            predict = []
+            pred, inter = self.classifier(encoder_hidden[0,:,:])
+            pred = torch.softmax(pred, dim=-1)
+            predict.append(pred)
+
+        return encoder_hidden, torch.stack(predict)
+
 
 class MultiSemiSeq2Seq(nn.Module):
     # quesstion: use multi-head, multi-classifier, or one head multi-diemension
